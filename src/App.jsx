@@ -1,33 +1,52 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useEffect, useState } from 'react'
+import { collection, getDocs } from 'firebase/firestore'
+import { db, getPlaceInfoByName } from './firebase'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [places, setPlaces] = useState([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const loadPlaces = async () => {
+      try {
+        const placesSnap = await getDocs(collection(db, 'places'))
+        const placeNames = placesSnap.docs.map((d) => d.id)
+
+        const results = await Promise.all(
+          placeNames.map((name) => getPlaceInfoByName(name)),
+        )
+        setPlaces(results.filter(Boolean))
+      } catch (err) {
+        setError(err?.message ?? 'Failed to load data')
+      }
+    }
+    loadPlaces()
+  }, [])
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <h1>Places</h1>
+      {error ? <p>{error}</p> : null}
+      {places.length === 0 ? <p>No places found.</p> : null}
+      {places.map((place) => (
+        <div key={place.id} style={{ marginBottom: '1rem' }}>
+          <h2>{place.id}</h2>
+          {place.address ? <p>Address: {place.address}</p> : null}
+          {place.people?.length ? (
+            <ul>
+              {place.people.map((person) => (
+                <li key={person.id}>
+                  <strong>{person.name ?? person.Name ?? person.id}</strong>
+                  {person.bio ? ` — ${person.bio}` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No people.</p>
+          )}
+        </div>
+      ))}
     </>
   )
 }
