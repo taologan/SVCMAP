@@ -3,6 +3,7 @@ import L from 'leaflet'
 import 'leaflet.heat'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
+import { addEntity, getEntities } from './firebase'
 
 const EMPTY_FORM = {
   name: '',
@@ -13,147 +14,6 @@ const EMPTY_FORM = {
 }
 
 const MARKER_VISIBILITY_ZOOM = 12
-
-const MOCK_ENTITIES = [
-  {
-    id: 'john-wesley-dobbs',
-    type: 'person',
-    name: 'John Wesley Dobbs and Family',
-    summary:
-      "Often referred to as the unofficial mayor of Auburn Avenue, Dobbs coined the term 'Sweet Auburn' and helped lead major voter registration and civic organizing in Atlanta's Black community.",
-    dates: 'Voting rights advocate',
-    coordinates: [
-      [33.7554, -84.3738],
-      [33.7559, -84.3729],
-    ],
-  },
-  {
-    id: 'clara-maxwell-cater-pitts',
-    type: 'person',
-    name: 'Clara Maxwell Cater Pitts',
-    summary:
-      'Pitts served as superintendent of the Carrie Steele Orphans Home, modernized its operations, and was later honored with the renamed Carrie Steele Pitts Home and a school in her name.',
-    dates: 'Educator and orphanage manager',
-    coordinates: [
-      [33.7347, -84.4152],
-      [33.7388, -84.4126],
-    ],
-  },
-  {
-    id: 'moses-amos',
-    type: 'person',
-    name: 'Moses Amos',
-    summary:
-      'Amos became the first African American granted a Georgia druggist license in 1911 and built Gate City Drug Store into a hub of mentorship and opportunity.',
-    dates: 'First licensed Black pharmacist in Georgia',
-    coordinates: [
-      [33.7598, -84.3878],
-      [33.7555, -84.3735],
-    ],
-  },
-  {
-    id: 'dinah-watts-pace',
-    type: 'person',
-    name: 'Dinah Watts Pace',
-    summary:
-      'Born enslaved in 1833, Pace founded one of Georgia’s earliest orphanages for African American children and helped build foundational faith and education institutions.',
-    dates: 'Educator and orphanage founder',
-    coordinates: [
-      [33.7366, -84.3866],
-      [33.5968, -83.8602],
-    ],
-  },
-  {
-    id: 'adrienne-herndon',
-    type: 'person',
-    name: 'Adrienne Herndon',
-    summary:
-      'Herndon was an educator and performer who became one of Atlanta University’s first Black faculty members and later designed the Herndon family’s Diamond Hill estate.',
-    dates: 'Educator and actor',
-    coordinates: [
-      [33.749, -84.4122],
-      [33.7674, -84.3992],
-    ],
-  },
-  {
-    id: 'george-union-wilder',
-    type: 'person',
-    name: 'George "Union" Wilder',
-    summary:
-      'In Brownsville, Wilder was killed while defending his home during the 1906 Race Massacre; this resistance slowed white mobs as violence spread.',
-    dates: 'Victim of the 1906 Race Massacre',
-    coordinates: [[33.6893, -84.3885]],
-  },
-  {
-    id: 'ad-jennie-williams',
-    type: 'person',
-    name: 'A. D. and Jennie Williams',
-    summary:
-      "A.D. Williams and Jennie Parks Williams shaped Ebenezer’s civic and faith leadership, with A.D. also helping found the Atlanta NAACP branch.",
-    dates: 'Grandparents of Dr. Martin Luther King Jr.',
-    coordinates: [
-      [33.7542, -84.3738],
-      [33.7546, -84.3729],
-    ],
-  },
-  {
-    id: 'walter-westmoreland',
-    type: 'person',
-    name: 'Walter Westmoreland',
-    summary:
-      "Westmoreland, a Morehouse and Atlanta University graduate, served as a Tuskegee Airman with the Red Tail Flyers during WWII.",
-    dates: 'First Lieutenant, Tuskegee Airman',
-    coordinates: [[33.7478, -84.4141]],
-  },
-  {
-    id: 'mlk-sr-and-alberta',
-    type: 'person',
-    name: 'Rev. and Mrs. Martin Luther King, Sr.',
-    summary:
-      'Rev. Martin Luther King Sr. and Alberta Williams King helped shape Atlanta’s religious and civic life through decades of leadership at Ebenezer and beyond.',
-    dates: 'Parents of Dr. Martin Luther King Jr.',
-    coordinates: [
-      [33.7542, -84.3738],
-      [33.749, -84.388],
-    ],
-  },
-  {
-    id: 'henry-aaron',
-    type: 'person',
-    name: 'Henry Aaron',
-    summary:
-      "Aaron broke baseball barriers on and off the field, then leveraged his legacy to support civil rights and public service causes.",
-    dates: 'Baseball legend and civil rights supporter',
-    coordinates: [
-      [33.7348, -84.3899],
-      [33.755, -84.3727],
-    ],
-  },
-  {
-    id: 'julian-bond',
-    type: 'person',
-    name: 'Julian Bond',
-    summary:
-      'Bond rose from student activism at Morehouse to SNCC leadership and major public service in Georgia politics and civil rights advocacy.',
-    dates: 'Civil rights organizer and legislator',
-    coordinates: [
-      [33.7478, -84.4141],
-      [33.749, -84.3878],
-    ],
-  },
-  {
-    id: 'john-lewis',
-    type: 'person',
-    name: 'Congressman John Lewis',
-    summary:
-      'Lewis bridged grassroots civil rights organizing and national public office, representing Georgia while sustaining movement leadership for decades.',
-    dates: 'Civil rights leader and U.S. Congressman',
-    coordinates: [
-      [33.7552, -84.3903],
-      [33.7493, -84.3884],
-    ],
-  },
-]
 
 const ATLANTA_CENTER = [33.749, -84.388]
 const CARTO_LIGHT_BASEMAP = {
@@ -180,11 +40,11 @@ function App() {
   const [isPickingCoordinates, setIsPickingCoordinates] = useState(false)
   const [waypointForm, setWaypointForm] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState('')
-  const [userWaypoints, setUserWaypoints] = useState([])
-  const entities = useMemo(
-    () => [...MOCK_ENTITIES, ...userWaypoints],
-    [userWaypoints],
-  )
+  const [isSavingWaypoint, setIsSavingWaypoint] = useState(false)
+  const [firebaseEntities, setFirebaseEntities] = useState([])
+  const [entitiesStatus, setEntitiesStatus] = useState('loading')
+  const [entitiesError, setEntitiesError] = useState('')
+  const entities = firebaseEntities
   const pointEntities = useMemo(
     () =>
       entities.flatMap((entity) =>
@@ -217,6 +77,32 @@ function App() {
       })
       .filter((entry) => entry.visiblePointCount > 0)
   }, [bounds, entities, showMarkers])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadEntities = async () => {
+      setEntitiesStatus('loading')
+      setEntitiesError('')
+      try {
+        const loadedEntities = await getEntities()
+        if (!isMounted) return
+        setFirebaseEntities(loadedEntities)
+        setEntitiesStatus('ready')
+      } catch (error) {
+        if (!isMounted) return
+        console.error('Failed to fetch entities from Firestore:', error)
+        setEntitiesStatus('error')
+        setEntitiesError('Unable to load data from Firestore.')
+      }
+    }
+
+    loadEntities()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
 
   useEffect(() => {
@@ -341,6 +227,12 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  useEffect(() => {
+    if (!activeEntity) return
+    const entityStillExists = entities.some((entity) => entity.id === activeEntity.id)
+    if (!entityStillExists) setActiveEntity(null)
+  }, [activeEntity, entities])
+
   const openAddModal = () => {
     setFormError('')
     setWaypointForm(EMPTY_FORM)
@@ -398,7 +290,7 @@ function App() {
     setWaypointForm((current) => ({ ...current, files: fileList }))
   }
 
-  const handleAddWaypoint = (event) => {
+  const handleAddWaypoint = async (event) => {
     event.preventDefault()
     const latitude = Number(waypointForm.latitude)
     const longitude = Number(waypointForm.longitude)
@@ -420,19 +312,29 @@ function App() {
       return
     }
 
-    const newWaypoint = {
-      id: `user-${Date.now()}`,
-      type: 'submission',
-      name,
-      summary: story,
-      dates: 'Community submission',
-      coordinates: [[latitude, longitude]],
-      uploadedFiles: waypointForm.files.map((file) => file.name),
-    }
+    setFormError('')
+    setIsSavingWaypoint(true)
 
-    setUserWaypoints((current) => [...current, newWaypoint])
-    setActiveEntity(newWaypoint)
-    closeAddModal()
+    try {
+      const newWaypoint = await addEntity({
+        type: 'submission',
+        name,
+        summary: story,
+        dates: 'Community submission',
+        coordinates: [[latitude, longitude]],
+        uploadedFiles: waypointForm.files.map((file) => file.name),
+        source: 'user',
+      })
+
+      setFirebaseEntities((current) => [...current, newWaypoint])
+      setActiveEntity(newWaypoint)
+      closeAddModal()
+    } catch (error) {
+      console.error('Failed to save waypoint to Firestore:', error)
+      setFormError('Could not save to Firebase. Please try again.')
+    } finally {
+      setIsSavingWaypoint(false)
+    }
   }
 
   const startCoordinatePicker = () => {
@@ -479,7 +381,7 @@ function App() {
             <p className="eyebrow">South-View Cemetery</p>
             <h1>Atlanta Community Story Map</h1>
             <p className="subtitle">
-              Frontend prototype with local data, heatmap, and zoom-based markers.
+              Firestore-powered story map with heatmap and zoom-based markers.
             </p>
           </div>
           <div className="header-controls">
@@ -513,6 +415,12 @@ function App() {
           <div className="visible-sidebar-body">
             <p className="eyebrow">On-screen waypoints</p>
             <h3>Visible People & Sites</h3>
+            {entitiesStatus === 'loading' ? (
+              <p className="sidebar-empty">Loading waypoints from Firestore...</p>
+            ) : null}
+            {entitiesStatus === 'error' ? (
+              <p className="sidebar-empty">{entitiesError}</p>
+            ) : null}
             {!showMarkers ? (
               <p className="sidebar-empty">
                 Zoom Further in to see a list of people.
@@ -677,8 +585,8 @@ function App() {
                 </ul>
               ) : null}
               {formError ? <p className="form-error">{formError}</p> : null}
-              <button type="submit" className="submit-btn">
-                Save local waypoint
+              <button type="submit" className="submit-btn" disabled={isSavingWaypoint}>
+                {isSavingWaypoint ? 'Saving to Firebase...' : 'Save waypoint'}
               </button>
             </form>
           </section>

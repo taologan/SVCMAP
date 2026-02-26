@@ -1,6 +1,15 @@
 import { initializeApp } from 'firebase/app'
 import { getAnalytics } from 'firebase/analytics'
-import { collection, doc, getDoc, getDocs, getFirestore } from 'firebase/firestore'
+import {
+  GeoPoint,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  getFirestore,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -18,6 +27,102 @@ export const db = getFirestore(app)
 
 export const analytics =
   typeof window !== 'undefined' ? getAnalytics(app) : null
+
+function normalizeCoordinate(value) {
+  if (Array.isArray(value) && value.length === 2) {
+    const [lat, lng] = value
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng]
+  }
+
+  if (value && typeof value === 'object') {
+    const lat = value.lat ?? value.latitude
+    const lng = value.lng ?? value.longitude
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng]
+  }
+
+  return null
+}
+
+function normalizeCoordinates(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((coordinate) => normalizeCoordinate(coordinate))
+    .filter(Boolean)
+}
+
+function normalizeUploadedFiles(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((file) => {
+      if (typeof file === 'string') return file
+      if (file && typeof file === 'object' && typeof file.name === 'string') return file.name
+      return null
+    })
+    .filter(Boolean)
+}
+
+export async function getEntities() {
+  const entitiesRef = collection(db, 'entities')
+  const entitiesSnap = await getDocs(entitiesRef)
+
+  return entitiesSnap.docs
+    .map((entityDoc) => {
+      const data = entityDoc.data()
+      const coordinates = normalizeCoordinates(data.coordinates)
+      if (!coordinates.length) return null
+
+      return {
+        id: data.id ?? entityDoc.id,
+        type: data.type ?? 'person',
+        name: data.name ?? 'Unknown',
+        summary: data.summary ?? '',
+        dates: data.dates ?? '',
+        coordinates,
+        uploadedFiles: normalizeUploadedFiles(data.uploadedFiles),
+      }
+    })
+    .filter(Boolean)
+}
+
+export async function addEntity({
+  type = 'submission',
+  name,
+  summary,
+  dates = 'Community submission',
+  coordinates,
+  uploadedFiles = [],
+  source = 'user',
+}) {
+  const entitiesRef = collection(db, 'entities')
+  const entityRef = doc(entitiesRef)
+
+  const firestoreCoordinates = coordinates.map(
+    ([lat, lng]) => new GeoPoint(lat, lng),
+  )
+
+  await setDoc(entityRef, {
+    id: entityRef.id,
+    type,
+    name,
+    summary,
+    dates,
+    coordinates: firestoreCoordinates,
+    uploadedFiles,
+    source,
+    createdAt: serverTimestamp(),
+  })
+
+  return {
+    id: entityRef.id,
+    type,
+    name,
+    summary,
+    dates,
+    coordinates,
+    uploadedFiles,
+    source,
+  }
+}
 
 export async function getPlaceInfoByName(placeName) {
   const placeRef = doc(db, 'places', placeName)
