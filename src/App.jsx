@@ -3,7 +3,7 @@ import L from 'leaflet'
 import 'leaflet.heat'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
-import { addEntity, getEntities } from './firebase'
+import { addEntity, getEntities, signInWithGoogle } from './firebase'
 
 const EMPTY_FORM = {
   name: '',
@@ -41,6 +41,7 @@ function App() {
   const [waypointForm, setWaypointForm] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState('')
   const [isSavingWaypoint, setIsSavingWaypoint] = useState(false)
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const [firebaseEntities, setFirebaseEntities] = useState([])
   const [entitiesStatus, setEntitiesStatus] = useState('loading')
   const [entitiesError, setEntitiesError] = useState('')
@@ -373,6 +374,18 @@ function App() {
     }
   }, [isPickingCoordinates])
 
+  const handleAdminLogin = async () => {
+    setIsSigningIn(true)
+    try {
+      const user = await signInWithGoogle()
+      console.log('Signed in with Google email:', user?.email ?? '(no email)')
+    } catch (error) {
+      console.error('Google sign-in failed:', error)
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
+
   return (
     <main className="app">
       <section className="map-shell">
@@ -385,6 +398,9 @@ function App() {
             </p>
           </div>
           <div className="header-controls">
+            <button type="button" className="admin-login-btn" onClick={handleAdminLogin} disabled={isSigningIn}>
+              {isSigningIn ? 'Signing in...' : 'Admin Login'}
+            </button>
             <button type="button" className="add-waypoint-btn" onClick={openAddModal}>
               + Add Connection
             </button>
