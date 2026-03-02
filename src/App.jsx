@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet.heat'
+import './leaflet-smooth-wheel-zoom'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 
@@ -15,6 +16,7 @@ const LOCAL_STORAGE_PENDING_KEY = 'svcmap_pending_requests_v1'
 const LOCAL_STORAGE_APPROVED_KEY = 'svcmap_approved_waypoints_v1'
 
 const MARKER_VISIBILITY_ZOOM = 12
+const HEAT_HIDE_AT_ZOOM = 15
 const IMAGE_BY_ENTITY_ID = {
   'john-wesley-dobbs': 'John Wesley Dobbs.jpg',
   'clara-maxwell-cater-pitts': 'Clara Pitts.png',
@@ -310,6 +312,13 @@ function App() {
       zoomControl: false,
       minZoom: 8,
       maxZoom: 18,
+      zoomSnap: 0,
+      scrollWheelZoom: false,
+      smoothWheelZoom: true,
+      smoothSensitivity: 1.2,
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: true,
     }).setView(ATLANTA_CENTER, 11)
     L.control.zoom({ position: 'bottomright' }).addTo(map)
 
@@ -339,12 +348,18 @@ function App() {
         west: nextBounds.getWest(),
       })
     }
+    const onSmoothZoom = () => {
+      if (heatLayerRef.current) heatLayerRef.current.redraw()
+    }
+
     map.on('zoomend', syncViewportState)
     map.on('moveend', syncViewportState)
+    map.on('smoothzoom', onSmoothZoom)
 
     return () => {
       map.off('zoomend', syncViewportState)
       map.off('moveend', syncViewportState)
+      map.off('smoothzoom', onSmoothZoom)
       map.remove()
       mapRef.current = null
       tileLayerRef.current = null
@@ -369,7 +384,7 @@ function App() {
       return
     }
 
-    const showHeat = zoom <= 12
+    const showHeat = zoom <= HEAT_HIDE_AT_ZOOM
 
     if (showHeat) {
       const heatPoints = pointEntities.map((pointEntity) => [
@@ -379,7 +394,7 @@ function App() {
       heatLayerRef.current = L.heatLayer(heatPoints, {
         radius: 30,
         blur: 22,
-        maxZoom: 14,
+        maxZoom: 18,
         minOpacity: 0.35,
         gradient: {
           0.15: '#ffd166',
