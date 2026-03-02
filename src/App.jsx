@@ -28,7 +28,7 @@ const IMAGE_BY_ENTITY_ID = {
   'henry-aaron': 'Henry Aaron.png',
   'julian-bond': 'Julian Bond.jpg',
   'john-lewis': 'Congressman John Lewis.jpg',
-  'gladys-knight': 'gladys-knight.jpeg',
+  'william-guest': 'william-guest.jpeg',
 }
 
 const MOCK_ENTITIES = [
@@ -147,10 +147,10 @@ const MOCK_ENTITIES = [
     ],
   },
   {
-    id: 'gladys-knight',
+    id: 'william-guest',
     type: 'person',
-    name: 'Gladys Knight',
-    summary: `Gladys Knight is an Atlanta-born singer known as the "Empress of Soul." She was the lead vocalist for Gladys Knight & the Pips, best known for "Midnight Train to Georgia." She attended Booker T. Washington High School and first started singing at Mount Moriah Baptist Church.`,
+    name: 'William Guest',
+    summary: `William Guest was an Atlanta born singer and was one of the signature background vocalists for Gladys Knight & the Pips, helping shape many songs such as "Midnight Train to Georgia." He attended Booker T. Washington High School and first started singing at Mount Moriah Baptist Church.`,
     audioClips: [
       {
         title: 'Midnight Train to Georgia (sample)',
