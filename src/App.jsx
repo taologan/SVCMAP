@@ -28,6 +28,7 @@ const IMAGE_BY_ENTITY_ID = {
   'henry-aaron': 'Henry Aaron.png',
   'julian-bond': 'Julian Bond.jpg',
   'john-lewis': 'Congressman John Lewis.jpg',
+  'gladys-knight': 'gladys-knight.jpeg',
 }
 
 const MOCK_ENTITIES = [
@@ -143,6 +144,22 @@ const MOCK_ENTITIES = [
     coordinates: [
       [33.7552, -84.3903],
       [33.7493, -84.3884],
+    ],
+  },
+  {
+    id: 'gladys-knight',
+    type: 'person',
+    name: 'Gladys Knight',
+    summary: `Gladys Knight is an Atlanta-born singer known as the "Empress of Soul." She was the lead vocalist for Gladys Knight & the Pips, best known for "Midnight Train to Georgia." She attended Booker T. Washington High School and first started singing at Mount Moriah Baptist Church.`,
+    audioClips: [
+      {
+        title: 'Midnight Train to Georgia (sample)',
+        src: '/audio/gladys-knight.mp3',
+      },
+    ],
+    coordinates: [
+      [33.7536477, -84.4217112],
+      [33.75, -84.42],
     ],
   },
 ]
@@ -749,6 +766,21 @@ function App() {
                   </figure>
                 ) : null}
                 <p>{activeEntity.summary}</p>
+                {activeEntity.audioClips?.length ? (
+                  <div className="audio-list">
+                    <strong>Audio:</strong>
+                    <ul>
+                      {activeEntity.audioClips.map((clip) => (
+                        <li key={`${clip.src}-${clip.title ?? 'clip'}`}>
+                          {clip.title ? <span>{clip.title}</span> : null}
+                          <audio controls preload="none" src={clip.src}>
+                            Your browser does not support the audio element.
+                          </audio>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {activeEntity.uploadedFiles?.length ? (
                   <div className="file-list">
                     <strong>Files:</strong>

@@ -386,6 +386,23 @@
   padding-left: 1rem;
 }
 
+.audio-list ul {
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.audio-list li {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.audio-list audio {
+  width: 100%;
+}
+
 .form-modal {
   width: min(560px, 100%);
 }
