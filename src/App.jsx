@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet.heat";
+import './leaflet-smooth-wheel-zoom'
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import { addEntity, getEntities, signInWithGoogle } from "./firebase";
@@ -14,7 +15,8 @@ const EMPTY_FORM = {
   files: [],
 };
 
-const MARKER_VISIBILITY_ZOOM = 12;
+const MARKER_VISIBILITY_ZOOM = 11.75
+const HEAT_VISIBILITY_ZOOM = 14
 
 const ATLANTA_CENTER = [33.749, -84.388];
 const CARTO_LIGHT_BASEMAP = {
@@ -57,8 +59,39 @@ function App() {
         })),
       ),
     [entities],
-  );
-  const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM;
+  )
+  const heatData = useMemo(() => {
+    if (pointEntities.length === 0) {
+      return {
+        points: [],
+        maxIntensity: 1,
+      }
+    }
+
+    // Bucket nearby coordinates so dense local groups contribute higher intensity.
+    const bucketCounts = new Map()
+    pointEntities.forEach((pointEntity) => {
+      const [lat, lng] = pointEntity.coordinate
+      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`
+      bucketCounts.set(bucketKey, (bucketCounts.get(bucketKey) ?? 0) + 1)
+    })
+
+    let maxBucketCount = 0
+    const weightedPoints = pointEntities.map((pointEntity) => {
+      const [lat, lng] = pointEntity.coordinate
+      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`
+      const localWeight = bucketCounts.get(bucketKey) ?? 1
+      if (localWeight > maxBucketCount) maxBucketCount = localWeight
+      return [lat, lng, localWeight]
+    })
+
+    return {
+      points: weightedPoints,
+      // Keep one-off points from rendering at full saturation.
+      maxIntensity: Math.max(maxBucketCount, 3),
+    }
+  }, [pointEntities])
+  const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM
   const visibleEntities = useMemo(() => {
     if (!bounds || !showMarkers) return [];
     return entities
@@ -112,8 +145,15 @@ function App() {
       zoomControl: false,
       minZoom: 8,
       maxZoom: 18,
-    }).setView(ATLANTA_CENTER, 11);
-    L.control.zoom({ position: "bottomright" }).addTo(map);
+      zoomSnap: 0,
+      scrollWheelZoom: false,
+      smoothWheelZoom: true,
+      smoothSensitivity: 1.2,
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: true,
+    }).setView(ATLANTA_CENTER, 11)
+    L.control.zoom({ position: 'bottomright' }).addTo(map)
 
     tileLayerRef.current = L.tileLayer(
       CARTO_LIGHT_BASEMAP.url,
@@ -141,12 +181,17 @@ function App() {
         west: nextBounds.getWest(),
       });
     };
+    const onSmoothZoom = () => {
+      if (heatLayerRef.current) heatLayerRef.current.redraw()
+    }
     map.on("zoomend", syncViewportState);
     map.on("moveend", syncViewportState);
+    map.on('smoothzoom', onSmoothZoom)
 
     return () => {
       map.off("zoomend", syncViewportState);
       map.off("moveend", syncViewportState);
+      map.off('smoothzoom', onSmoothZoom)
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
@@ -171,17 +216,14 @@ function App() {
       return;
     }
 
-    const showHeat = zoom <= 12;
+    const showHeat = zoom <= HEAT_VISIBILITY_ZOOM
 
     if (showHeat) {
-      const heatPoints = pointEntities.map((pointEntity) => [
-        pointEntity.coordinate[0],
-        pointEntity.coordinate[1],
-      ]);
-      heatLayerRef.current = L.heatLayer(heatPoints, {
+      heatLayerRef.current = L.heatLayer(heatData.points, {
         radius: 30,
         blur: 22,
         maxZoom: 14,
+        max: heatData.maxIntensity,
         minOpacity: 0.35,
         gradient: {
           0.15: "#ffd166",
@@ -213,7 +255,7 @@ function App() {
         marker.addTo(markerLayer);
       });
     }
-  }, [activeEntity, pointEntities, zoom]);
+  }, [activeEntity, heatData, pointEntities, zoom])
 
   useEffect(() => {
     const handleKeyDown = (event) => {
