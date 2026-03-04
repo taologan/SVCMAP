@@ -15,7 +15,7 @@ const EMPTY_FORM = {
 const LOCAL_STORAGE_PENDING_KEY = 'svcmap_pending_requests_v1'
 const LOCAL_STORAGE_APPROVED_KEY = 'svcmap_approved_waypoints_v1'
 
-const MARKER_VISIBILITY_ZOOM = 12
+const MARKER_VISIBILITY_ZOOM = 11.75
 const HEAT_HIDE_AT_ZOOM = 15
 const IMAGE_BY_ENTITY_ID = {
   'john-wesley-dobbs': 'John Wesley Dobbs.jpg',
