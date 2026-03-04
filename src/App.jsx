@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet.heat";
-import './leaflet-smooth-wheel-zoom'
+import "./leaflet-smooth-wheel-zoom";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
-import { addEntity, getEntities, signInWithGoogle } from "./firebase";
+import {
+  addEntity,
+  getEntities,
+  isUserAdmin,
+  onAuthUserChanged,
+  signInWithGoogle,
+} from "./firebase";
 import Sidebar from "./components/sidebar";
+import AdminPanel from "./components/admin-panel";
 
 const EMPTY_FORM = {
   name: "",
@@ -15,8 +22,8 @@ const EMPTY_FORM = {
   files: [],
 };
 
-const MARKER_VISIBILITY_ZOOM = 11.75
-const HEAT_VISIBILITY_ZOOM = 14
+const MARKER_VISIBILITY_ZOOM = 11.75;
+const HEAT_VISIBILITY_ZOOM = 14;
 
 const ATLANTA_CENTER = [33.749, -84.388];
 const CARTO_LIGHT_BASEMAP = {
@@ -45,6 +52,10 @@ function App() {
   const [formError, setFormError] = useState("");
   const [isSavingWaypoint, setIsSavingWaypoint] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [firebaseEntities, setFirebaseEntities] = useState([]);
   const [entitiesStatus, setEntitiesStatus] = useState("loading");
   const [entitiesError, setEntitiesError] = useState("");
@@ -59,39 +70,39 @@ function App() {
         })),
       ),
     [entities],
-  )
+  );
   const heatData = useMemo(() => {
     if (pointEntities.length === 0) {
       return {
         points: [],
         maxIntensity: 1,
-      }
+      };
     }
 
     // Bucket nearby coordinates so dense local groups contribute higher intensity.
-    const bucketCounts = new Map()
+    const bucketCounts = new Map();
     pointEntities.forEach((pointEntity) => {
-      const [lat, lng] = pointEntity.coordinate
-      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`
-      bucketCounts.set(bucketKey, (bucketCounts.get(bucketKey) ?? 0) + 1)
-    })
+      const [lat, lng] = pointEntity.coordinate;
+      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
+      bucketCounts.set(bucketKey, (bucketCounts.get(bucketKey) ?? 0) + 1);
+    });
 
-    let maxBucketCount = 0
+    let maxBucketCount = 0;
     const weightedPoints = pointEntities.map((pointEntity) => {
-      const [lat, lng] = pointEntity.coordinate
-      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`
-      const localWeight = bucketCounts.get(bucketKey) ?? 1
-      if (localWeight > maxBucketCount) maxBucketCount = localWeight
-      return [lat, lng, localWeight]
-    })
+      const [lat, lng] = pointEntity.coordinate;
+      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
+      const localWeight = bucketCounts.get(bucketKey) ?? 1;
+      if (localWeight > maxBucketCount) maxBucketCount = localWeight;
+      return [lat, lng, localWeight];
+    });
 
     return {
       points: weightedPoints,
       // Keep one-off points from rendering at full saturation.
       maxIntensity: Math.max(maxBucketCount, 3),
-    }
-  }, [pointEntities])
-  const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM
+    };
+  }, [pointEntities]);
+  const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM;
   const visibleEntities = useMemo(() => {
     if (!bounds || !showMarkers) return [];
     return entities
@@ -112,6 +123,43 @@ function App() {
       })
       .filter((entry) => entry.visiblePointCount > 0);
   }, [bounds, entities, showMarkers]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsubscribe = onAuthUserChanged((user) => {
+      if (!isMounted) return;
+
+      setAuthUser(user);
+      setIsAdminPanelOpen(false);
+
+      if (!user) {
+        setIsAdmin(false);
+        setIsCheckingAdmin(false);
+        return;
+      }
+
+      setIsCheckingAdmin(true);
+      isUserAdmin(user)
+        .then((allowed) => {
+          if (!isMounted) return;
+          setIsAdmin(allowed);
+        })
+        .catch((error) => {
+          if (!isMounted) return;
+          console.error("Failed to verify admin status:", error);
+          setIsAdmin(false);
+        })
+        .finally(() => {
+          if (!isMounted) return;
+          setIsCheckingAdmin(false);
+        });
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -152,8 +200,8 @@ function App() {
       zoomAnimation: true,
       fadeAnimation: true,
       markerZoomAnimation: true,
-    }).setView(ATLANTA_CENTER, 11)
-    L.control.zoom({ position: 'bottomright' }).addTo(map)
+    }).setView(ATLANTA_CENTER, 11);
+    L.control.zoom({ position: "bottomright" }).addTo(map);
 
     tileLayerRef.current = L.tileLayer(
       CARTO_LIGHT_BASEMAP.url,
@@ -182,16 +230,16 @@ function App() {
       });
     };
     const onSmoothZoom = () => {
-      if (heatLayerRef.current) heatLayerRef.current.redraw()
-    }
+      if (heatLayerRef.current) heatLayerRef.current.redraw();
+    };
     map.on("zoomend", syncViewportState);
     map.on("moveend", syncViewportState);
-    map.on('smoothzoom', onSmoothZoom)
+    map.on("smoothzoom", onSmoothZoom);
 
     return () => {
       map.off("zoomend", syncViewportState);
       map.off("moveend", syncViewportState);
-      map.off('smoothzoom', onSmoothZoom)
+      map.off("smoothzoom", onSmoothZoom);
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
@@ -216,7 +264,7 @@ function App() {
       return;
     }
 
-    const showHeat = zoom <= HEAT_VISIBILITY_ZOOM
+    const showHeat = zoom <= HEAT_VISIBILITY_ZOOM;
 
     if (showHeat) {
       heatLayerRef.current = L.heatLayer(heatData.points, {
@@ -255,7 +303,7 @@ function App() {
         marker.addTo(markerLayer);
       });
     }
-  }, [activeEntity, heatData, pointEntities, zoom])
+  }, [activeEntity, heatData, pointEntities, zoom]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -430,6 +478,11 @@ function App() {
   }, [isPickingCoordinates]);
 
   const handleAdminLogin = async () => {
+    if (isAdmin) {
+      setIsAdminPanelOpen(true);
+      return;
+    }
+
     setIsSigningIn(true);
     try {
       const user = await signInWithGoogle();
@@ -457,9 +510,17 @@ function App() {
               type="button"
               className="admin-login-btn"
               onClick={handleAdminLogin}
-              disabled={isSigningIn}
+              disabled={isSigningIn || (Boolean(authUser) && isCheckingAdmin)}
             >
-              {isSigningIn ? "Signing in..." : "Admin Login"}
+              {isSigningIn
+                ? "Signing in..."
+                : authUser && isCheckingAdmin
+                  ? "Checking admin..."
+                  : isAdmin
+                    ? "Open Admin Panel"
+                    : authUser
+                      ? "Switch Admin Account"
+                      : "Admin Login"}
             </button>
             <button
               type="button"
@@ -645,6 +706,11 @@ function App() {
           </section>
         </div>
       ) : null}
+      <AdminPanel
+        isOpen={isAdmin && isAdminPanelOpen}
+        userEmail={authUser?.email}
+        onClose={() => setIsAdminPanelOpen(false)}
+      />
     </main>
   );
 }

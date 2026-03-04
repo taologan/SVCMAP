@@ -418,6 +418,17 @@
     cursor: pointer;
 }
 
+.admin-panel {
+    width: min(620px, 100%);
+}
+
+.admin-panel-body {
+    border: 1px solid #ebdfcc;
+    border-radius: 0.6rem;
+    background: #fff9ef;
+    padding: 0.8rem;
+}
+
 .file-list ul {
     margin-top: 0.35rem;
     margin-bottom: 0;
