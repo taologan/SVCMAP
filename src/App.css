@@ -61,8 +61,22 @@
   cursor: pointer;
 }
 
+.admin-login-btn {
+  border: 1px solid #2b5f9c;
+  background: linear-gradient(180deg, #d8ebff, #bdddfc);
+  color: #17344a;
+  border-radius: 0.62rem;
+  padding: 0.58rem 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .add-waypoint-btn:hover {
   filter: brightness(0.97);
+}
+
+.admin-login-btn:hover {
+  filter: brightness(0.98);
 }
 
 .status {
