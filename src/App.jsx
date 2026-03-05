@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet.heat";
 import "./leaflet-smooth-wheel-zoom";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import {
-  addEntity,
+  addPending,
   getEntities,
   isUserAdmin,
+  lookupRequestStatus,
   onAuthUserChanged,
   signInWithGoogle,
 } from "./firebase";
@@ -19,7 +20,13 @@ const EMPTY_FORM = {
   story: "",
   latitude: "",
   longitude: "",
+  contactEmail: "",
+  contactPhone: "",
   files: [],
+};
+const EMPTY_STATUS_LOOKUP_FORM = {
+  contactEmail: "",
+  contactPhone: "",
 };
 
 const MARKER_VISIBILITY_ZOOM = 11.75;
@@ -59,7 +66,31 @@ function App() {
   const [firebaseEntities, setFirebaseEntities] = useState([]);
   const [entitiesStatus, setEntitiesStatus] = useState("loading");
   const [entitiesError, setEntitiesError] = useState("");
+  const [submissionReceipt, setSubmissionReceipt] = useState(null);
+  const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
+  const [isStatusLookupOpen, setIsStatusLookupOpen] = useState(false);
+  const [statusLookupForm, setStatusLookupForm] = useState(
+    EMPTY_STATUS_LOOKUP_FORM,
+  );
+  const [statusLookupResult, setStatusLookupResult] = useState([]);
+  const [statusLookupError, setStatusLookupError] = useState("");
+  const [isCheckingStatusLookup, setIsCheckingStatusLookup] = useState(false);
+  const [hasStatusLookupAttempted, setHasStatusLookupAttempted] =
+    useState(false);
   const entities = firebaseEntities;
+  const loadEntities = useCallback(async () => {
+    setEntitiesStatus("loading");
+    setEntitiesError("");
+    try {
+      const loadedEntities = await getEntities();
+      setFirebaseEntities(loadedEntities);
+      setEntitiesStatus("ready");
+    } catch (error) {
+      console.error("Failed to fetch entries from Firestore:", error);
+      setEntitiesStatus("error");
+      setEntitiesError("Unable to load data from Firestore.");
+    }
+  }, []);
   const pointEntities = useMemo(
     () =>
       entities.flatMap((entity) =>
@@ -162,30 +193,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadEntities = async () => {
-      setEntitiesStatus("loading");
-      setEntitiesError("");
-      try {
-        const loadedEntities = await getEntities();
-        if (!isMounted) return;
-        setFirebaseEntities(loadedEntities);
-        setEntitiesStatus("ready");
-      } catch (error) {
-        if (!isMounted) return;
-        console.error("Failed to fetch entities from Firestore:", error);
-        setEntitiesStatus("error");
-        setEntitiesError("Unable to load data from Firestore.");
-      }
-    };
-
     loadEntities();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  }, [loadEntities]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -311,6 +320,8 @@ function App() {
         setActiveEntity(null);
         setIsAddModalOpen(false);
         setIsPickingCoordinates(false);
+        setIsSubmissionSuccessOpen(false);
+        setIsStatusLookupOpen(false);
       }
     };
 
@@ -337,6 +348,22 @@ function App() {
     setWaypointForm(EMPTY_FORM);
     setIsAddModalOpen(false);
     setIsPickingCoordinates(false);
+  };
+
+  const openStatusLookupModal = () => {
+    setStatusLookupForm(EMPTY_STATUS_LOOKUP_FORM);
+    setStatusLookupResult([]);
+    setStatusLookupError("");
+    setHasStatusLookupAttempted(false);
+    setIsStatusLookupOpen(true);
+  };
+
+  const closeStatusLookupModal = () => {
+    setStatusLookupForm(EMPTY_STATUS_LOOKUP_FORM);
+    setStatusLookupResult([]);
+    setStatusLookupError("");
+    setHasStatusLookupAttempted(false);
+    setIsStatusLookupOpen(false);
   };
 
   const focusEntity = (entity, visiblePoints = []) => {
@@ -395,9 +422,15 @@ function App() {
     const longitude = Number(waypointForm.longitude);
     const name = waypointForm.name.trim();
     const story = waypointForm.story.trim();
+    const contactEmail = waypointForm.contactEmail.trim();
+    const contactPhone = waypointForm.contactPhone.trim();
 
     if (!name || !story) {
       setFormError("Name and story are required.");
+      return;
+    }
+    if (!contactEmail && !contactPhone) {
+      setFormError("Please provide an email or phone number for status lookup.");
       return;
     }
 
@@ -420,7 +453,7 @@ function App() {
     setIsSavingWaypoint(true);
 
     try {
-      const newWaypoint = await addEntity({
+      const pendingRequest = await addPending({
         type: "submission",
         name,
         summary: story,
@@ -428,11 +461,18 @@ function App() {
         coordinates: [[latitude, longitude]],
         uploadedFiles: waypointForm.files.map((file) => file.name),
         source: "user",
+        submitterEmail: contactEmail,
+        submitterPhone: contactPhone,
       });
 
-      setFirebaseEntities((current) => [...current, newWaypoint]);
-      setActiveEntity(newWaypoint);
       closeAddModal();
+      setSubmissionReceipt({
+        id: pendingRequest.id,
+        name,
+        contactEmail,
+        contactPhone,
+      });
+      setIsSubmissionSuccessOpen(true);
     } catch (error) {
       console.error("Failed to save waypoint to Firestore:", error);
       setFormError("Could not save to Firebase. Please try again.");
@@ -494,6 +534,39 @@ function App() {
     }
   };
 
+  const handleStatusLookupFieldChange = (event) => {
+    const { name, value } = event.target;
+    setStatusLookupForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleStatusLookup = async (event) => {
+    event.preventDefault();
+    setHasStatusLookupAttempted(true);
+    setStatusLookupError("");
+    setStatusLookupResult([]);
+
+    if (
+      !statusLookupForm.contactEmail.trim() &&
+      !statusLookupForm.contactPhone.trim()
+    ) {
+      setStatusLookupError("Please provide the email or phone used on submission.");
+      return;
+    }
+
+    setIsCheckingStatusLookup(true);
+    try {
+      const result = await lookupRequestStatus({
+        submitterEmail: statusLookupForm.contactEmail,
+        submitterPhone: statusLookupForm.contactPhone,
+      });
+      setStatusLookupResult(result);
+    } catch (error) {
+      setStatusLookupError(error.message || "Could not find that request.");
+    } finally {
+      setIsCheckingStatusLookup(false);
+    }
+  };
+
   return (
     <main className="app">
       <section className="map-shell">
@@ -528,6 +601,13 @@ function App() {
               onClick={openAddModal}
             >
               + Add Connection
+            </button>
+            <button
+              type="button"
+              className="add-waypoint-btn secondary"
+              onClick={openStatusLookupModal}
+            >
+              Check Request Status
             </button>
             {/* <div className="status">
               <span className="stat-chip">Zoom {zoom}</span>
@@ -676,6 +756,29 @@ function App() {
                   />
                 </label>
               </div>
+              <label>
+                Contact email (optional)
+                <input
+                  name="contactEmail"
+                  type="email"
+                  value={waypointForm.contactEmail}
+                  onChange={handleFieldChange}
+                  placeholder="you@example.org"
+                />
+              </label>
+              <label>
+                Contact phone (optional)
+                <input
+                  name="contactPhone"
+                  type="tel"
+                  value={waypointForm.contactPhone}
+                  onChange={handleFieldChange}
+                  placeholder="404-555-1234"
+                />
+              </label>
+              <p className="form-note">
+                Add at least one contact method so you can check request status later.
+              </p>
               <button
                 type="button"
                 className="pick-coord-btn"
@@ -706,10 +809,135 @@ function App() {
           </section>
         </div>
       ) : null}
+      {isSubmissionSuccessOpen ? (
+        <div
+          className="entity-modal-backdrop"
+          role="presentation"
+          onClick={() => setIsSubmissionSuccessOpen(false)}
+        >
+          <section
+            className="entity-modal form-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Submission successful"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="entity-modal-close"
+              onClick={() => setIsSubmissionSuccessOpen(false)}
+            >
+              Close
+            </button>
+            <p className="eyebrow">Submission received</p>
+            <h2>Request submitted successfully</h2>
+            <p>
+              Thanks for your contribution. You can check your request status
+              anytime using the same email or phone number you submitted.
+            </p>
+            {submissionReceipt?.name ? (
+              <p>
+                <strong>Submitted request:</strong> {submissionReceipt.name}
+              </p>
+            ) : null}
+            <p>
+              Status updates are available from the <strong>Check Request Status</strong> button.
+            </p>
+          </section>
+        </div>
+      ) : null}
+      {isStatusLookupOpen ? (
+        <div
+          className="entity-modal-backdrop"
+          role="presentation"
+          onClick={closeStatusLookupModal}
+        >
+          <section
+            className="entity-modal form-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Check request status"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="entity-modal-close"
+              onClick={closeStatusLookupModal}
+            >
+              Close
+            </button>
+            <p className="eyebrow">Status lookup</p>
+            <h2>Check Request Status</h2>
+            <form className="add-waypoint-form" onSubmit={handleStatusLookup}>
+              <label>
+                Contact email (optional)
+                <input
+                  name="contactEmail"
+                  type="email"
+                  value={statusLookupForm.contactEmail}
+                  onChange={handleStatusLookupFieldChange}
+                  placeholder="you@example.org"
+                />
+              </label>
+              <label>
+                Contact phone (optional)
+                <input
+                  name="contactPhone"
+                  type="tel"
+                  value={statusLookupForm.contactPhone}
+                  onChange={handleStatusLookupFieldChange}
+                  placeholder="404-555-1234"
+                />
+              </label>
+              <p className="form-note">
+                Enter the same email or phone used when you submitted your request.
+              </p>
+              {statusLookupError ? (
+                <p className="form-error">{statusLookupError}</p>
+              ) : null}
+              {hasStatusLookupAttempted ? (
+                <div className="lookup-result">
+                  {statusLookupResult.length === 0 ? (
+                    <p>No matching requests found.</p>
+                  ) : (
+                    <ul className="lookup-result-list">
+                      {statusLookupResult.map((request) => (
+                        <li key={request.id}>
+                          <p>
+                            <strong>Status:</strong> {request.status}
+                          </p>
+                          {request.name ? (
+                            <p>
+                              <strong>Request name:</strong> {request.name}
+                            </p>
+                          ) : null}
+                          {request.reviewNotes ? (
+                            <p>
+                              <strong>Review notes:</strong> {request.reviewNotes}
+                            </p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={isCheckingStatusLookup}
+              >
+                {isCheckingStatusLookup ? "Checking..." : "Check status"}
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
       <AdminPanel
         isOpen={isAdmin && isAdminPanelOpen}
         userEmail={authUser?.email}
         onClose={() => setIsAdminPanelOpen(false)}
+        onEntriesChanged={loadEntities}
       />
     </main>
   );

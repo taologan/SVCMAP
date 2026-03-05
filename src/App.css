@@ -80,6 +80,11 @@
     filter: brightness(0.97);
 }
 
+.add-waypoint-btn.secondary {
+    background: linear-gradient(180deg, #fde8cc, #f7d7ad);
+    border-color: #c3884f;
+}
+
 .admin-login-btn:hover {
     filter: brightness(0.98);
 }
@@ -420,6 +425,7 @@
 
 .admin-panel {
     width: min(620px, 100%);
+    max-height: min(90vh, calc(100vh - 2rem));
 }
 
 .admin-panel-body {
@@ -427,6 +433,144 @@
     border-radius: 0.6rem;
     background: #fff9ef;
     padding: 0.8rem;
+}
+
+.admin-tab-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.admin-tab {
+    border: 1px solid #d5c2a4;
+    border-radius: 0.5rem;
+    background: #fffdf8;
+    color: #3b2d1a;
+    padding: 0.4rem 0.65rem;
+    cursor: pointer;
+}
+
+.admin-tab.active {
+    background: #f7d9b1;
+    border-color: #9f5317;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.7fr;
+    gap: 0.75rem;
+}
+
+.admin-list {
+    max-height: 55vh;
+    overflow-y: auto;
+    border: 1px solid #e2d3bc;
+    border-radius: 0.5rem;
+    background: #fffdf8;
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.admin-list-item {
+    border: 1px solid #e6d8c2;
+    border-radius: 0.45rem;
+    background: #fff;
+    color: #2c2c2c;
+    text-align: left;
+    padding: 0.45rem 0.55rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.admin-list-item span {
+    color: #696969;
+    font-size: 0.85rem;
+}
+
+.admin-list-item.active {
+    border-color: #9f5317;
+    background: #fdf0df;
+}
+
+.admin-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.admin-editor label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+    color: #4a4a4a;
+}
+
+.admin-editor input,
+.admin-editor textarea {
+    border: 1px solid #cdbb9f;
+    border-radius: 0.45rem;
+    padding: 0.5rem;
+    background: #fff;
+    color: #2a2a2a;
+    font: inherit;
+}
+
+.admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.admin-approve-btn {
+    border: 1px solid #2f7a32;
+    background: #d6f5d6;
+    color: #134b16;
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-deny-btn {
+    border: 1px solid #a0352a;
+    background: #fde2dd;
+    color: #6a1309;
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-delete-btn {
+    border: 1px solid #8f1f13;
+    background: #f9d3cd;
+    color: #5a110a;
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-delete-confirm {
+    border: 1px solid #d4a29a;
+    border-radius: 0.55rem;
+    background: #fff1ee;
+    padding: 0.65rem 0.75rem;
+}
+
+.admin-delete-confirm p {
+    margin: 0.2rem 0 0.45rem;
+}
+
+.admin-success {
+    margin: 0.4rem 0;
+    color: #1e6f25;
+    font-weight: 600;
 }
 
 .file-list ul {
@@ -496,6 +640,39 @@
     font-weight: 600;
 }
 
+.form-note {
+    margin: 0;
+    font-size: 0.84rem;
+    color: #6a5c4c;
+}
+
+.lookup-result {
+    border: 1px solid #dcc8a8;
+    border-radius: 0.5rem;
+    background: #fff7eb;
+    padding: 0.55rem 0.65rem;
+}
+
+.lookup-result p {
+    margin: 0.22rem 0;
+}
+
+.lookup-result-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.lookup-result-list li {
+    border: 1px solid #e4d4bb;
+    border-radius: 0.45rem;
+    background: #fffdf8;
+    padding: 0.45rem 0.55rem;
+}
+
 .submit-btn {
     border: 1px solid #7a4d1b;
     background: #8ecae6;
@@ -557,5 +734,13 @@
 
     .coord-grid {
         grid-template-columns: 1fr;
+    }
+
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-list {
+        max-height: 30vh;
     }
 }
