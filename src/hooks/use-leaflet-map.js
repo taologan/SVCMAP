@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
+import "leaflet.heat";
+import "../leaflet-smooth-wheel-zoom";
 import {
   ATLANTA_CENTER,
   CARTO_LIGHT_BASEMAP,

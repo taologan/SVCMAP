@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import "leaflet.heat";
-import "./leaflet-smooth-wheel-zoom";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import Sidebar from "./components/sidebar";
