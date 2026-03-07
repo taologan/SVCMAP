@@ -75,13 +75,14 @@ function AddWaypointModal({
             </label>
           </div>
           <label>
-            Contact email (optional)
+            Contact email
             <input
               name="contactEmail"
               type="email"
               value={waypointForm.contactEmail}
               onChange={onFieldChange}
               placeholder="you@example.org"
+              required
             />
           </label>
           <label>
@@ -95,7 +96,7 @@ function AddWaypointModal({
             />
           </label>
           <p className="form-note">
-            Add at least one contact method so you can check request status later.
+            Email is required for status lookup. Phone number is optional.
           </p>
           <button
             type="button"

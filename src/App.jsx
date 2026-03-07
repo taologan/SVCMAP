@@ -354,8 +354,8 @@ function App() {
       setFormError("Name and story are required.");
       return;
     }
-    if (!contactEmail && !contactPhone) {
-      setFormError("Please provide an email or phone number for status lookup.");
+    if (!contactEmail) {
+      setFormError("Please provide an email address.");
       return;
     }
 
