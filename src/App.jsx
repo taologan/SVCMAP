@@ -13,6 +13,12 @@ import {
   MARKER_VISIBILITY_ZOOM,
 } from "./constants";
 import {
+  buildHeatData,
+  flattenPointEntities,
+  getBoundsSnapshot,
+  getVisibleEntities,
+} from "./utils/map-helpers";
+import {
   addPending,
   getEntities,
   isUserAdmin,
@@ -72,69 +78,13 @@ function App() {
       setEntitiesError("Unable to load data from Firestore.");
     }
   }, []);
-  const pointEntities = useMemo(
-    () =>
-      entities.flatMap((entity) =>
-        entity.coordinates.map((coordinate, pointIndex) => ({
-          entity,
-          coordinate,
-          pointIndex,
-        })),
-      ),
-    [entities],
-  );
-  const heatData = useMemo(() => {
-    if (pointEntities.length === 0) {
-      return {
-        points: [],
-        maxIntensity: 1,
-      };
-    }
-
-    // Bucket nearby coordinates so dense local groups contribute higher intensity.
-    const bucketCounts = new Map();
-    pointEntities.forEach((pointEntity) => {
-      const [lat, lng] = pointEntity.coordinate;
-      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
-      bucketCounts.set(bucketKey, (bucketCounts.get(bucketKey) ?? 0) + 1);
-    });
-
-    let maxBucketCount = 0;
-    const weightedPoints = pointEntities.map((pointEntity) => {
-      const [lat, lng] = pointEntity.coordinate;
-      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
-      const localWeight = bucketCounts.get(bucketKey) ?? 1;
-      if (localWeight > maxBucketCount) maxBucketCount = localWeight;
-      return [lat, lng, localWeight];
-    });
-
-    return {
-      points: weightedPoints,
-      // Keep one-off points from rendering at full saturation.
-      maxIntensity: Math.max(maxBucketCount, 3),
-    };
-  }, [pointEntities]);
+  const pointEntities = useMemo(() => flattenPointEntities(entities), [entities]);
+  const heatData = useMemo(() => buildHeatData(pointEntities), [pointEntities]);
   const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM;
-  const visibleEntities = useMemo(() => {
-    if (!bounds || !showMarkers) return [];
-    return entities
-      .map((entity) => {
-        const visiblePoints = entity.coordinates.filter(([lat, lng]) => {
-          return (
-            lat >= bounds.south &&
-            lat <= bounds.north &&
-            lng >= bounds.west &&
-            lng <= bounds.east
-          );
-        });
-        return {
-          entity,
-          visiblePointCount: visiblePoints.length,
-          visiblePoints,
-        };
-      })
-      .filter((entry) => entry.visiblePointCount > 0);
-  }, [bounds, entities, showMarkers]);
+  const visibleEntities = useMemo(
+    () => getVisibleEntities({ entities, bounds, showMarkers }),
+    [bounds, entities, showMarkers],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -201,23 +151,11 @@ function App() {
     markerLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
     setZoom(map.getZoom());
-    const initialBounds = map.getBounds();
-    setBounds({
-      north: initialBounds.getNorth(),
-      south: initialBounds.getSouth(),
-      east: initialBounds.getEast(),
-      west: initialBounds.getWest(),
-    });
+    setBounds(getBoundsSnapshot(map.getBounds()));
 
     const syncViewportState = () => {
       setZoom(map.getZoom());
-      const nextBounds = map.getBounds();
-      setBounds({
-        north: nextBounds.getNorth(),
-        south: nextBounds.getSouth(),
-        east: nextBounds.getEast(),
-        west: nextBounds.getWest(),
-      });
+      setBounds(getBoundsSnapshot(map.getBounds()));
     };
     const onSmoothZoom = () => {
       if (heatLayerRef.current) heatLayerRef.current.redraw();
