@@ -5,6 +5,20 @@ import "./leaflet-smooth-wheel-zoom";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import {
+  ATLANTA_CENTER,
+  CARTO_LIGHT_BASEMAP,
+  EMPTY_FORM,
+  EMPTY_STATUS_LOOKUP_FORM,
+  HEAT_VISIBILITY_ZOOM,
+  MARKER_VISIBILITY_ZOOM,
+} from "./constants";
+import {
+  buildHeatData,
+  flattenPointEntities,
+  getBoundsSnapshot,
+  getVisibleEntities,
+} from "./utils/map-helpers";
+import {
   addPending,
   getEntities,
   isUserAdmin,
@@ -14,33 +28,12 @@ import {
 } from "./firebase";
 import Sidebar from "./components/sidebar";
 import AdminPanel from "./components/admin-panel";
-
-const EMPTY_FORM = {
-  name: "",
-  story: "",
-  latitude: "",
-  longitude: "",
-  contactEmail: "",
-  contactPhone: "",
-  files: [],
-};
-const EMPTY_STATUS_LOOKUP_FORM = {
-  contactEmail: "",
-  contactPhone: "",
-};
-
-const MARKER_VISIBILITY_ZOOM = 11.75;
-const HEAT_VISIBILITY_ZOOM = 14;
-
-const ATLANTA_CENTER = [33.749, -84.388];
-const CARTO_LIGHT_BASEMAP = {
-  url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  options: {
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    subdomains: "abcd",
-    maxZoom: 20,
-  },
-};
+import AddWaypointModal from "./components/add-waypoint-modal";
+import StatusLookupModal from "./components/status-lookup-modal";
+import SubmissionSuccessModal from "./components/submission-success-modal";
+import DetailsDrawer from "./components/details-drawer";
+import TopBar from "./components/top-bar";
+import CoordinatePickerBanner from "./components/coordinate-picker-banner";
 
 function App() {
   const mapContainerRef = useRef(null);
@@ -91,69 +84,13 @@ function App() {
       setEntitiesError("Unable to load data from Firestore.");
     }
   }, []);
-  const pointEntities = useMemo(
-    () =>
-      entities.flatMap((entity) =>
-        entity.coordinates.map((coordinate, pointIndex) => ({
-          entity,
-          coordinate,
-          pointIndex,
-        })),
-      ),
-    [entities],
-  );
-  const heatData = useMemo(() => {
-    if (pointEntities.length === 0) {
-      return {
-        points: [],
-        maxIntensity: 1,
-      };
-    }
-
-    // Bucket nearby coordinates so dense local groups contribute higher intensity.
-    const bucketCounts = new Map();
-    pointEntities.forEach((pointEntity) => {
-      const [lat, lng] = pointEntity.coordinate;
-      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
-      bucketCounts.set(bucketKey, (bucketCounts.get(bucketKey) ?? 0) + 1);
-    });
-
-    let maxBucketCount = 0;
-    const weightedPoints = pointEntities.map((pointEntity) => {
-      const [lat, lng] = pointEntity.coordinate;
-      const bucketKey = `${lat.toFixed(4)}:${lng.toFixed(4)}`;
-      const localWeight = bucketCounts.get(bucketKey) ?? 1;
-      if (localWeight > maxBucketCount) maxBucketCount = localWeight;
-      return [lat, lng, localWeight];
-    });
-
-    return {
-      points: weightedPoints,
-      // Keep one-off points from rendering at full saturation.
-      maxIntensity: Math.max(maxBucketCount, 3),
-    };
-  }, [pointEntities]);
+  const pointEntities = useMemo(() => flattenPointEntities(entities), [entities]);
+  const heatData = useMemo(() => buildHeatData(pointEntities), [pointEntities]);
   const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM;
-  const visibleEntities = useMemo(() => {
-    if (!bounds || !showMarkers) return [];
-    return entities
-      .map((entity) => {
-        const visiblePoints = entity.coordinates.filter(([lat, lng]) => {
-          return (
-            lat >= bounds.south &&
-            lat <= bounds.north &&
-            lng >= bounds.west &&
-            lng <= bounds.east
-          );
-        });
-        return {
-          entity,
-          visiblePointCount: visiblePoints.length,
-          visiblePoints,
-        };
-      })
-      .filter((entry) => entry.visiblePointCount > 0);
-  }, [bounds, entities, showMarkers]);
+  const visibleEntities = useMemo(
+    () => getVisibleEntities({ entities, bounds, showMarkers }),
+    [bounds, entities, showMarkers],
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -220,23 +157,11 @@ function App() {
     markerLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
     setZoom(map.getZoom());
-    const initialBounds = map.getBounds();
-    setBounds({
-      north: initialBounds.getNorth(),
-      south: initialBounds.getSouth(),
-      east: initialBounds.getEast(),
-      west: initialBounds.getWest(),
-    });
+    setBounds(getBoundsSnapshot(map.getBounds()));
 
     const syncViewportState = () => {
       setZoom(map.getZoom());
-      const nextBounds = map.getBounds();
-      setBounds({
-        north: nextBounds.getNorth(),
-        south: nextBounds.getSouth(),
-        east: nextBounds.getEast(),
-        west: nextBounds.getWest(),
-      });
+      setBounds(getBoundsSnapshot(map.getBounds()));
     };
     const onSmoothZoom = () => {
       if (heatLayerRef.current) heatLayerRef.current.redraw();
@@ -570,53 +495,15 @@ function App() {
   return (
     <main className="app">
       <section className="map-shell">
-        <header className="top-bar">
-          <div className="title-wrap">
-            <p className="eyebrow">South-View Cemetery</p>
-            <h1>Atlanta Community Story Map</h1>
-            <p className="subtitle">
-              Firestore-powered story map with heatmap and zoom-based markers.
-            </p>
-          </div>
-          <div className="header-controls">
-            <button
-              type="button"
-              className="admin-login-btn"
-              onClick={handleAdminLogin}
-              disabled={isSigningIn || (Boolean(authUser) && isCheckingAdmin)}
-            >
-              {isSigningIn
-                ? "Signing in..."
-                : authUser && isCheckingAdmin
-                  ? "Checking admin..."
-                  : isAdmin
-                    ? "Open Admin Panel"
-                    : authUser
-                      ? "Switch Admin Account"
-                      : "Admin Login"}
-            </button>
-            <button
-              type="button"
-              className="add-waypoint-btn"
-              onClick={openAddModal}
-            >
-              + Add Connection
-            </button>
-            <button
-              type="button"
-              className="add-waypoint-btn secondary"
-              onClick={openStatusLookupModal}
-            >
-              Check Request Status
-            </button>
-            {/* <div className="status">
-              <span className="stat-chip">Zoom {zoom}</span>
-              <span className="stat-chip">{visibleEntities.length} visible</span>
-              <span className="stat-chip">Style: Carto Light</span>
-              {/* Map style selector temporarily disabled to keep navigation focused. */}
-            {/* </div> */}
-          </div>
-        </header>
+        <TopBar
+          isSigningIn={isSigningIn}
+          authUser={authUser}
+          isCheckingAdmin={isCheckingAdmin}
+          isAdmin={isAdmin}
+          onAdminLogin={handleAdminLogin}
+          onOpenAddModal={openAddModal}
+          onOpenStatusLookupModal={openStatusLookupModal}
+        />
         <Sidebar
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
@@ -628,311 +515,43 @@ function App() {
           onFocusEntity={focusEntity}
         />
         <div ref={mapContainerRef} className="map" />
-        {isPickingCoordinates ? (
-          <div className="map-pick-banner">
-            <span>Click on the map to set waypoint coordinates.</span>
-            <button type="button" onClick={cancelCoordinatePicker}>
-              Cancel
-            </button>
-          </div>
-        ) : null}
-        <aside
-          className={activeEntity ? "details-drawer" : "details-drawer empty"}
-        >
-          {activeEntity ? (
-            <>
-              <div className="drawer-header">
-                <div>
-                  <p className="eyebrow">{activeEntity.type}</p>
-                  <h2>{activeEntity.name}</h2>
-                </div>
-                <button
-                  type="button"
-                  className="drawer-close"
-                  onClick={() => setActiveEntity(null)}
-                >
-                  Close
-                </button>
-              </div>
-              <div className="drawer-body">
-                <p>{activeEntity.summary}</p>
-                <p>
-                  <strong>Dates:</strong> {activeEntity.dates}
-                </p>
-                {activeEntity.uploadedFiles?.length ? (
-                  <div className="file-list">
-                    <strong>Files:</strong>
-                    <ul>
-                      {activeEntity.uploadedFiles.map((fileName) => (
-                        <li key={fileName}>{fileName}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <div className="drawer-empty-state">
-              <p className="eyebrow">Waypoint details</p>
-              <h2>Select a marker</h2>
-              <p>
-                Click a waypoint from the map or visible list to read more
-                details here. The map recenters toward the left so you can keep
-                exploring while reading.
-              </p>
-            </div>
-          )}
-        </aside>
+        <CoordinatePickerBanner
+          isVisible={isPickingCoordinates}
+          onCancel={cancelCoordinatePicker}
+        />
+        <DetailsDrawer
+          activeEntity={activeEntity}
+          onClose={() => setActiveEntity(null)}
+        />
       </section>
 
-      {isAddModalOpen ? (
-        <div
-          className="entity-modal-backdrop"
-          role="presentation"
-          onClick={closeAddModal}
-        >
-          <section
-            className="entity-modal form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Add waypoint"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="entity-modal-close"
-              onClick={closeAddModal}
-            >
-              Close
-            </button>
-            <p className="eyebrow">New waypoint request</p>
-            <h2>Add a Waypoint</h2>
-            <form className="add-waypoint-form" onSubmit={handleAddWaypoint}>
-              <label>
-                Name
-                <input
-                  name="name"
-                  type="text"
-                  value={waypointForm.name}
-                  onChange={handleFieldChange}
-                  placeholder="Person or place name"
-                  required
-                />
-              </label>
-              <label>
-                Story
-                <textarea
-                  name="story"
-                  value={waypointForm.story}
-                  onChange={handleFieldChange}
-                  placeholder="Short story or description"
-                  rows={4}
-                  required
-                />
-              </label>
-              <div className="coord-grid">
-                <label>
-                  Latitude
-                  <input
-                    name="latitude"
-                    type="number"
-                    step="any"
-                    value={waypointForm.latitude}
-                    onChange={handleFieldChange}
-                    placeholder="33.7490"
-                    required
-                  />
-                </label>
-                <label>
-                  Longitude
-                  <input
-                    name="longitude"
-                    type="number"
-                    step="any"
-                    value={waypointForm.longitude}
-                    onChange={handleFieldChange}
-                    placeholder="-84.3880"
-                    required
-                  />
-                </label>
-              </div>
-              <label>
-                Contact email (optional)
-                <input
-                  name="contactEmail"
-                  type="email"
-                  value={waypointForm.contactEmail}
-                  onChange={handleFieldChange}
-                  placeholder="you@example.org"
-                />
-              </label>
-              <label>
-                Contact phone (optional)
-                <input
-                  name="contactPhone"
-                  type="tel"
-                  value={waypointForm.contactPhone}
-                  onChange={handleFieldChange}
-                  placeholder="404-555-1234"
-                />
-              </label>
-              <p className="form-note">
-                Add at least one contact method so you can check request status later.
-              </p>
-              <button
-                type="button"
-                className="pick-coord-btn"
-                onClick={startCoordinatePicker}
-              >
-                Select coordinates on map
-              </button>
-              <label>
-                Upload files
-                <input type="file" multiple onChange={handleFileChange} />
-              </label>
-              {waypointForm.files.length ? (
-                <ul className="selected-files">
-                  {waypointForm.files.map((file) => (
-                    <li key={`${file.name}-${file.size}`}>{file.name}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {formError ? <p className="form-error">{formError}</p> : null}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isSavingWaypoint}
-              >
-                {isSavingWaypoint ? "Saving to Firebase..." : "Save waypoint"}
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
-      {isSubmissionSuccessOpen ? (
-        <div
-          className="entity-modal-backdrop"
-          role="presentation"
-          onClick={() => setIsSubmissionSuccessOpen(false)}
-        >
-          <section
-            className="entity-modal form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Submission successful"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="entity-modal-close"
-              onClick={() => setIsSubmissionSuccessOpen(false)}
-            >
-              Close
-            </button>
-            <p className="eyebrow">Submission received</p>
-            <h2>Request submitted successfully</h2>
-            <p>
-              Thanks for your contribution. You can check your request status
-              anytime using the same email or phone number you submitted.
-            </p>
-            {submissionReceipt?.name ? (
-              <p>
-                <strong>Submitted request:</strong> {submissionReceipt.name}
-              </p>
-            ) : null}
-            <p>
-              Status updates are available from the <strong>Check Request Status</strong> button.
-            </p>
-          </section>
-        </div>
-      ) : null}
-      {isStatusLookupOpen ? (
-        <div
-          className="entity-modal-backdrop"
-          role="presentation"
-          onClick={closeStatusLookupModal}
-        >
-          <section
-            className="entity-modal form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Check request status"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="entity-modal-close"
-              onClick={closeStatusLookupModal}
-            >
-              Close
-            </button>
-            <p className="eyebrow">Status lookup</p>
-            <h2>Check Request Status</h2>
-            <form className="add-waypoint-form" onSubmit={handleStatusLookup}>
-              <label>
-                Contact email (optional)
-                <input
-                  name="contactEmail"
-                  type="email"
-                  value={statusLookupForm.contactEmail}
-                  onChange={handleStatusLookupFieldChange}
-                  placeholder="you@example.org"
-                />
-              </label>
-              <label>
-                Contact phone (optional)
-                <input
-                  name="contactPhone"
-                  type="tel"
-                  value={statusLookupForm.contactPhone}
-                  onChange={handleStatusLookupFieldChange}
-                  placeholder="404-555-1234"
-                />
-              </label>
-              <p className="form-note">
-                Enter the same email or phone used when you submitted your request.
-              </p>
-              {statusLookupError ? (
-                <p className="form-error">{statusLookupError}</p>
-              ) : null}
-              {hasStatusLookupAttempted ? (
-                <div className="lookup-result">
-                  {statusLookupResult.length === 0 ? (
-                    <p>No matching requests found.</p>
-                  ) : (
-                    <ul className="lookup-result-list">
-                      {statusLookupResult.map((request) => (
-                        <li key={request.id}>
-                          <p>
-                            <strong>Status:</strong> {request.status}
-                          </p>
-                          {request.name ? (
-                            <p>
-                              <strong>Request name:</strong> {request.name}
-                            </p>
-                          ) : null}
-                          {request.reviewNotes ? (
-                            <p>
-                              <strong>Review notes:</strong> {request.reviewNotes}
-                            </p>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isCheckingStatusLookup}
-              >
-                {isCheckingStatusLookup ? "Checking..." : "Check status"}
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      <AddWaypointModal
+        isOpen={isAddModalOpen}
+        waypointForm={waypointForm}
+        formError={formError}
+        isSavingWaypoint={isSavingWaypoint}
+        onClose={closeAddModal}
+        onSubmit={handleAddWaypoint}
+        onFieldChange={handleFieldChange}
+        onFileChange={handleFileChange}
+        onStartCoordinatePicker={startCoordinatePicker}
+      />
+      <SubmissionSuccessModal
+        isOpen={isSubmissionSuccessOpen}
+        submissionReceipt={submissionReceipt}
+        onClose={() => setIsSubmissionSuccessOpen(false)}
+      />
+      <StatusLookupModal
+        isOpen={isStatusLookupOpen}
+        statusLookupForm={statusLookupForm}
+        statusLookupError={statusLookupError}
+        hasStatusLookupAttempted={hasStatusLookupAttempted}
+        statusLookupResult={statusLookupResult}
+        isCheckingStatusLookup={isCheckingStatusLookup}
+        onClose={closeStatusLookupModal}
+        onFieldChange={handleStatusLookupFieldChange}
+        onSubmit={handleStatusLookup}
+      />
       <AdminPanel
         isOpen={isAdmin && isAdminPanelOpen}
         userEmail={authUser?.email}
