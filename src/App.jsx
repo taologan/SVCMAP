@@ -5,6 +5,14 @@ import "./leaflet-smooth-wheel-zoom";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 import {
+  ATLANTA_CENTER,
+  CARTO_LIGHT_BASEMAP,
+  EMPTY_FORM,
+  EMPTY_STATUS_LOOKUP_FORM,
+  HEAT_VISIBILITY_ZOOM,
+  MARKER_VISIBILITY_ZOOM,
+} from "./constants";
+import {
   addPending,
   getEntities,
   isUserAdmin,
@@ -14,33 +22,6 @@ import {
 } from "./firebase";
 import Sidebar from "./components/sidebar";
 import AdminPanel from "./components/admin-panel";
-
-const EMPTY_FORM = {
-  name: "",
-  story: "",
-  latitude: "",
-  longitude: "",
-  contactEmail: "",
-  contactPhone: "",
-  files: [],
-};
-const EMPTY_STATUS_LOOKUP_FORM = {
-  contactEmail: "",
-  contactPhone: "",
-};
-
-const MARKER_VISIBILITY_ZOOM = 11.75;
-const HEAT_VISIBILITY_ZOOM = 14;
-
-const ATLANTA_CENTER = [33.749, -84.388];
-const CARTO_LIGHT_BASEMAP = {
-  url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  options: {
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-    subdomains: "abcd",
-    maxZoom: 20,
-  },
-};
 
 function App() {
   const mapContainerRef = useRef(null);
