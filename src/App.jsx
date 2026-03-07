@@ -31,6 +31,7 @@ import AdminPanel from "./components/admin-panel";
 import AddWaypointModal from "./components/add-waypoint-modal";
 import StatusLookupModal from "./components/status-lookup-modal";
 import SubmissionSuccessModal from "./components/submission-success-modal";
+import DetailsDrawer from "./components/details-drawer";
 
 function App() {
   const mapContainerRef = useRef(null);
@@ -558,53 +559,10 @@ function App() {
             </button>
           </div>
         ) : null}
-        <aside
-          className={activeEntity ? "details-drawer" : "details-drawer empty"}
-        >
-          {activeEntity ? (
-            <>
-              <div className="drawer-header">
-                <div>
-                  <p className="eyebrow">{activeEntity.type}</p>
-                  <h2>{activeEntity.name}</h2>
-                </div>
-                <button
-                  type="button"
-                  className="drawer-close"
-                  onClick={() => setActiveEntity(null)}
-                >
-                  Close
-                </button>
-              </div>
-              <div className="drawer-body">
-                <p>{activeEntity.summary}</p>
-                <p>
-                  <strong>Dates:</strong> {activeEntity.dates}
-                </p>
-                {activeEntity.uploadedFiles?.length ? (
-                  <div className="file-list">
-                    <strong>Files:</strong>
-                    <ul>
-                      {activeEntity.uploadedFiles.map((fileName) => (
-                        <li key={fileName}>{fileName}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <div className="drawer-empty-state">
-              <p className="eyebrow">Waypoint details</p>
-              <h2>Select a marker</h2>
-              <p>
-                Click a waypoint from the map or visible list to read more
-                details here. The map recenters toward the left so you can keep
-                exploring while reading.
-              </p>
-            </div>
-          )}
-        </aside>
+        <DetailsDrawer
+          activeEntity={activeEntity}
+          onClose={() => setActiveEntity(null)}
+        />
       </section>
 
       <AddWaypointModal
