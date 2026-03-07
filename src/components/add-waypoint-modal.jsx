@@ -106,7 +106,7 @@ function AddWaypointModal({
           </button>
           <label>
             Upload files
-            <input type="file" multiple onChange={onFileChange} />
+            <input type="file" accept="image/*" multiple onChange={onFileChange} />
           </label>
           {waypointForm.files.length ? (
             <ul className="selected-files">

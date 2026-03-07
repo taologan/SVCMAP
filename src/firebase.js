@@ -22,6 +22,12 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
+import {
+  getDownloadURL,
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -37,6 +43,7 @@ const app = initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
@@ -111,6 +118,50 @@ function normalizeUploadedFiles(value) {
       return null;
     })
     .filter(Boolean);
+}
+
+function isBrowserFile(value) {
+  return typeof File !== "undefined" && value instanceof File;
+}
+
+function sanitizeFileName(fileName) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+async function resolveUploadedFilesForPending(pendingId, uploadedFiles) {
+  if (!Array.isArray(uploadedFiles)) return [];
+
+  const existingUrls = [];
+  const filesToUpload = [];
+
+  uploadedFiles.forEach((file) => {
+    if (typeof file === "string") {
+      const url = file.trim();
+      if (url) existingUrls.push(url);
+      return;
+    }
+
+    if (isBrowserFile(file)) {
+      filesToUpload.push(file);
+    }
+  });
+
+  if (!filesToUpload.length) {
+    return existingUrls;
+  }
+
+  const timestamp = Date.now();
+  const uploadedUrls = await Promise.all(
+    filesToUpload.map(async (file, index) => {
+      const normalizedName = sanitizeFileName(file.name || `upload-${index}`);
+      const objectPath = `pending/${pendingId}/${timestamp}-${index}-${normalizedName}`;
+      const objectRef = storageRef(storage, objectPath);
+      await uploadBytes(objectRef, file);
+      return getDownloadURL(objectRef);
+    }),
+  );
+
+  return [...existingUrls, ...uploadedUrls];
 }
 
 function normalizeEntityDoc(entityDoc) {
@@ -271,13 +322,17 @@ export async function addPending({
   const pendingCollection = collection(db, "pending");
   const pendingRef = doc(pendingCollection);
   const requestStatusRef = doc(db, "requestStatuses", pendingRef.id);
+  const uploadedFileUrls = await resolveUploadedFilesForPending(
+    pendingRef.id,
+    uploadedFiles,
+  );
   const sanitized = sanitizeEntityPayload({
     type,
     name,
     summary,
     dates,
     coordinates,
-    uploadedFiles,
+    uploadedFiles: uploadedFileUrls,
     source,
   });
   const contact = sanitizeContactPayload({ submitterEmail, submitterPhone });

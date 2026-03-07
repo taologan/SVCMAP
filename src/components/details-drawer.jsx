@@ -1,4 +1,6 @@
 function DetailsDrawer({ activeEntity, onClose }) {
+  const isLink = (value) => /^https?:\/\//i.test(value);
+
   return (
     <aside className={activeEntity ? "details-drawer" : "details-drawer empty"}>
       {activeEntity ? (
@@ -21,9 +23,19 @@ function DetailsDrawer({ activeEntity, onClose }) {
               <div className="file-list">
                 <strong>Files:</strong>
                 <ul>
-                  {activeEntity.uploadedFiles.map((fileName) => (
-                    <li key={fileName}>{fileName}</li>
-                  ))}
+                  {activeEntity.uploadedFiles.map((fileName) => {
+                    if (!isLink(fileName)) {
+                      return <li key={fileName}>{fileName}</li>;
+                    }
+
+                    return (
+                      <li key={fileName}>
+                        <a href={fileName} target="_blank" rel="noreferrer">
+                          {fileName}
+                        </a>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ) : null}
