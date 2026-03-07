@@ -568,6 +568,17 @@ export async function updateEntry({
   source = "admin",
 }) {
   const entryRef = doc(db, "entries", entryId);
+  const legacyEntityRef = doc(db, "entities", entryId);
+  const [entrySnap, legacyEntitySnap] = await Promise.all([
+    getDoc(entryRef),
+    getDoc(legacyEntityRef),
+  ]);
+  const targetCollection = entrySnap.exists()
+    ? "entries"
+    : legacyEntitySnap.exists()
+      ? "entities"
+      : "entries";
+  const targetRef = targetCollection === "entries" ? entryRef : legacyEntityRef;
   const sanitized = sanitizeEntityPayload({
     type,
     name,
@@ -578,17 +589,45 @@ export async function updateEntry({
     source,
   });
 
-  await updateDoc(entryRef, {
+  await updateDoc(targetRef, {
     ...sanitized,
     coordinates: toFirestoreCoordinates(sanitized.coordinates),
     updatedAt: serverTimestamp(),
   });
 
+  console.info(`[firebase] Updated ${targetCollection}/${entryId}`);
+
   return { id: entryId, ...sanitized };
 }
 
 export async function deleteEntry(entryId) {
-  await deleteDoc(doc(db, "entries", entryId));
+  const entryRef = doc(db, "entries", entryId);
+  const legacyEntityRef = doc(db, "entities", entryId);
+  const [entrySnap, legacyEntitySnap] = await Promise.all([
+    getDoc(entryRef),
+    getDoc(legacyEntityRef),
+  ]);
+
+  const deletes = [];
+  const deletedCollections = [];
+  if (entrySnap.exists()) {
+    deletes.push(deleteDoc(entryRef));
+    deletedCollections.push("entries");
+  }
+  if (legacyEntitySnap.exists()) {
+    deletes.push(deleteDoc(legacyEntityRef));
+    deletedCollections.push("entities");
+  }
+
+  // If neither exists, keep delete idempotent for UI flow.
+  if (deletes.length) {
+    await Promise.all(deletes);
+    console.info(
+      `[firebase] Deleted ${deletedCollections.join(", ")} document(s) for ID ${entryId}`,
+    );
+  } else {
+    console.warn(`[firebase] No matching entry found to delete for ID ${entryId}`);
+  }
 }
 
 export async function getPlaceInfoByName(placeName) {
