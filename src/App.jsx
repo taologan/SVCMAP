@@ -28,6 +28,7 @@ import {
 } from "./firebase";
 import Sidebar from "./components/sidebar";
 import AdminPanel from "./components/admin-panel";
+import AddWaypointModal from "./components/add-waypoint-modal";
 
 function App() {
   const mapContainerRef = useRef(null);
@@ -604,130 +605,17 @@ function App() {
         </aside>
       </section>
 
-      {isAddModalOpen ? (
-        <div
-          className="entity-modal-backdrop"
-          role="presentation"
-          onClick={closeAddModal}
-        >
-          <section
-            className="entity-modal form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Add waypoint"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="entity-modal-close"
-              onClick={closeAddModal}
-            >
-              Close
-            </button>
-            <p className="eyebrow">New waypoint request</p>
-            <h2>Add a Waypoint</h2>
-            <form className="add-waypoint-form" onSubmit={handleAddWaypoint}>
-              <label>
-                Name
-                <input
-                  name="name"
-                  type="text"
-                  value={waypointForm.name}
-                  onChange={handleFieldChange}
-                  placeholder="Person or place name"
-                  required
-                />
-              </label>
-              <label>
-                Story
-                <textarea
-                  name="story"
-                  value={waypointForm.story}
-                  onChange={handleFieldChange}
-                  placeholder="Short story or description"
-                  rows={4}
-                  required
-                />
-              </label>
-              <div className="coord-grid">
-                <label>
-                  Latitude
-                  <input
-                    name="latitude"
-                    type="number"
-                    step="any"
-                    value={waypointForm.latitude}
-                    onChange={handleFieldChange}
-                    placeholder="33.7490"
-                    required
-                  />
-                </label>
-                <label>
-                  Longitude
-                  <input
-                    name="longitude"
-                    type="number"
-                    step="any"
-                    value={waypointForm.longitude}
-                    onChange={handleFieldChange}
-                    placeholder="-84.3880"
-                    required
-                  />
-                </label>
-              </div>
-              <label>
-                Contact email (optional)
-                <input
-                  name="contactEmail"
-                  type="email"
-                  value={waypointForm.contactEmail}
-                  onChange={handleFieldChange}
-                  placeholder="you@example.org"
-                />
-              </label>
-              <label>
-                Contact phone (optional)
-                <input
-                  name="contactPhone"
-                  type="tel"
-                  value={waypointForm.contactPhone}
-                  onChange={handleFieldChange}
-                  placeholder="404-555-1234"
-                />
-              </label>
-              <p className="form-note">
-                Add at least one contact method so you can check request status later.
-              </p>
-              <button
-                type="button"
-                className="pick-coord-btn"
-                onClick={startCoordinatePicker}
-              >
-                Select coordinates on map
-              </button>
-              <label>
-                Upload files
-                <input type="file" multiple onChange={handleFileChange} />
-              </label>
-              {waypointForm.files.length ? (
-                <ul className="selected-files">
-                  {waypointForm.files.map((file) => (
-                    <li key={`${file.name}-${file.size}`}>{file.name}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {formError ? <p className="form-error">{formError}</p> : null}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isSavingWaypoint}
-              >
-                {isSavingWaypoint ? "Saving to Firebase..." : "Save waypoint"}
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      <AddWaypointModal
+        isOpen={isAddModalOpen}
+        waypointForm={waypointForm}
+        formError={formError}
+        isSavingWaypoint={isSavingWaypoint}
+        onClose={closeAddModal}
+        onSubmit={handleAddWaypoint}
+        onFieldChange={handleFieldChange}
+        onFileChange={handleFileChange}
+        onStartCoordinatePicker={startCoordinatePicker}
+      />
       {isSubmissionSuccessOpen ? (
         <div
           className="entity-modal-backdrop"
