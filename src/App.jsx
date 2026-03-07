@@ -29,6 +29,7 @@ import {
 import Sidebar from "./components/sidebar";
 import AdminPanel from "./components/admin-panel";
 import AddWaypointModal from "./components/add-waypoint-modal";
+import StatusLookupModal from "./components/status-lookup-modal";
 
 function App() {
   const mapContainerRef = useRef(null);
@@ -653,93 +654,17 @@ function App() {
           </section>
         </div>
       ) : null}
-      {isStatusLookupOpen ? (
-        <div
-          className="entity-modal-backdrop"
-          role="presentation"
-          onClick={closeStatusLookupModal}
-        >
-          <section
-            className="entity-modal form-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Check request status"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="entity-modal-close"
-              onClick={closeStatusLookupModal}
-            >
-              Close
-            </button>
-            <p className="eyebrow">Status lookup</p>
-            <h2>Check Request Status</h2>
-            <form className="add-waypoint-form" onSubmit={handleStatusLookup}>
-              <label>
-                Contact email (optional)
-                <input
-                  name="contactEmail"
-                  type="email"
-                  value={statusLookupForm.contactEmail}
-                  onChange={handleStatusLookupFieldChange}
-                  placeholder="you@example.org"
-                />
-              </label>
-              <label>
-                Contact phone (optional)
-                <input
-                  name="contactPhone"
-                  type="tel"
-                  value={statusLookupForm.contactPhone}
-                  onChange={handleStatusLookupFieldChange}
-                  placeholder="404-555-1234"
-                />
-              </label>
-              <p className="form-note">
-                Enter the same email or phone used when you submitted your request.
-              </p>
-              {statusLookupError ? (
-                <p className="form-error">{statusLookupError}</p>
-              ) : null}
-              {hasStatusLookupAttempted ? (
-                <div className="lookup-result">
-                  {statusLookupResult.length === 0 ? (
-                    <p>No matching requests found.</p>
-                  ) : (
-                    <ul className="lookup-result-list">
-                      {statusLookupResult.map((request) => (
-                        <li key={request.id}>
-                          <p>
-                            <strong>Status:</strong> {request.status}
-                          </p>
-                          {request.name ? (
-                            <p>
-                              <strong>Request name:</strong> {request.name}
-                            </p>
-                          ) : null}
-                          {request.reviewNotes ? (
-                            <p>
-                              <strong>Review notes:</strong> {request.reviewNotes}
-                            </p>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={isCheckingStatusLookup}
-              >
-                {isCheckingStatusLookup ? "Checking..." : "Check status"}
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      <StatusLookupModal
+        isOpen={isStatusLookupOpen}
+        statusLookupForm={statusLookupForm}
+        statusLookupError={statusLookupError}
+        hasStatusLookupAttempted={hasStatusLookupAttempted}
+        statusLookupResult={statusLookupResult}
+        isCheckingStatusLookup={isCheckingStatusLookup}
+        onClose={closeStatusLookupModal}
+        onFieldChange={handleStatusLookupFieldChange}
+        onSubmit={handleStatusLookup}
+      />
       <AdminPanel
         isOpen={isAdmin && isAdminPanelOpen}
         userEmail={authUser?.email}
