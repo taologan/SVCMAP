@@ -33,6 +33,7 @@ import StatusLookupModal from "./components/status-lookup-modal";
 import SubmissionSuccessModal from "./components/submission-success-modal";
 import DetailsDrawer from "./components/details-drawer";
 import TopBar from "./components/top-bar";
+import CoordinatePickerBanner from "./components/coordinate-picker-banner";
 
 function App() {
   const mapContainerRef = useRef(null);
@@ -514,14 +515,10 @@ function App() {
           onFocusEntity={focusEntity}
         />
         <div ref={mapContainerRef} className="map" />
-        {isPickingCoordinates ? (
-          <div className="map-pick-banner">
-            <span>Click on the map to set waypoint coordinates.</span>
-            <button type="button" onClick={cancelCoordinatePicker}>
-              Cancel
-            </button>
-          </div>
-        ) : null}
+        <CoordinatePickerBanner
+          isVisible={isPickingCoordinates}
+          onCancel={cancelCoordinatePicker}
+        />
         <DetailsDrawer
           activeEntity={activeEntity}
           onClose={() => setActiveEntity(null)}
