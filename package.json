@@ -8,8 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed:entities": "node scripts/seed-entities.mjs",
-    "migrate:entities-to-entries": "node scripts/migrate-entities-to-entries.mjs"
+    "seed:entities": "node scripts/seed-entities.mjs"
   },
   "dependencies": {
     "firebase": "^12.9.0",
