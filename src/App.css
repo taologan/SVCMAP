@@ -89,22 +89,6 @@
     filter: brightness(0.98);
 }
 
-.status {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.45rem;
-}
-
-.stat-chip {
-    border: 1px solid #dccbb0;
-    border-radius: 999px;
-    background: #fffdf7;
-    color: #4f4f4f;
-    font-size: 0.82rem;
-    padding: 0.3rem 0.6rem;
-}
-
 .map-shell {
     position: relative;
     width: 100vw;
@@ -703,10 +687,6 @@
 
     .add-waypoint-btn {
         width: 100%;
-    }
-
-    .status {
-        justify-content: flex-start;
     }
 
     .visible-sidebar {

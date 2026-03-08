@@ -48,6 +48,18 @@ function Sidebar({
     );
   }, [filteredVisibleEntities, sortMode]);
 
+  const sidebarEntities = useMemo(() => {
+    if (showMarkers) return sortedVisibleEntities;
+    if (!activeEntity) return [];
+    return [
+      {
+        entity: activeEntity,
+        visiblePointCount: activeEntity.coordinates?.length ?? 1,
+        visiblePoints: activeEntity.coordinates ?? [],
+      },
+    ];
+  }, [activeEntity, showMarkers, sortedVisibleEntities]);
+
   return (
     <aside
       className={
@@ -116,9 +128,9 @@ function Sidebar({
         {entitiesStatus === "error" ? (
           <p className="sidebar-empty">{entitiesError}</p>
         ) : null}
-        {!showMarkers ? (
+        {!showMarkers && !activeEntity ? (
           <p className="sidebar-empty">
-            Zoom Further in to see a list of people.
+            Zoom further in to see a list of people.
           </p>
         ) : null}
         {showMarkers && visibleEntities.length === 0 ? (
@@ -133,9 +145,9 @@ function Sidebar({
             No visible waypoints match the current filters.
           </p>
         ) : null}
-        {showMarkers && sortedVisibleEntities.length ? (
+        {sidebarEntities.length ? (
           <ul className="visible-stack">
-            {sortedVisibleEntities.map((entry) => (
+            {sidebarEntities.map((entry) => (
               <li key={entry.entity.id}>
                 <button
                   type="button"

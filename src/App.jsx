@@ -41,10 +41,11 @@ function App() {
     entities,
     activeEntity,
     setActiveEntity,
-    isSidebarCollapsed,
   });
 
   useEffect(() => {
+    // Keep panel state aligned with auth transitions.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsAdminPanelOpen(false);
   }, [authUser]);
 
@@ -68,6 +69,7 @@ function App() {
     const entityStillExists = entities.some(
       (entity) => entity.id === activeEntity.id,
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!entityStillExists) setActiveEntity(null);
   }, [activeEntity, entities]);
 

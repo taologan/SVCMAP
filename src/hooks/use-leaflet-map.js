@@ -56,7 +56,6 @@ export function useLeafletMap({
   entities,
   activeEntity,
   setActiveEntity,
-  isSidebarCollapsed,
 }) {
   const mapRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -125,7 +124,7 @@ export function useLeafletMap({
         duration: 0.65,
       });
     },
-    [isSidebarCollapsed, setActiveEntity],
+    [setActiveEntity],
   );
 
   useEffect(() => {

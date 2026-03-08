@@ -21,6 +21,8 @@ export function useMapEntities() {
   }, []);
 
   useEffect(() => {
+    // Initial load delegates to the shared reload routine.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reloadEntities();
   }, [reloadEntities]);
 
