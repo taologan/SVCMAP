@@ -384,7 +384,7 @@ function App() {
         summary: story,
         dates: "Community submission",
         coordinates: [[latitude, longitude]],
-        uploadedFiles: waypointForm.files.map((file) => file.name),
+        uploadedFiles: waypointForm.files,
         source: "user",
         submitterEmail: contactEmail,
         submitterPhone: contactPhone,
