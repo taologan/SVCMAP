@@ -235,29 +235,13 @@ function sanitizeContactPayload(payload) {
 }
 
 export async function getEntities() {
-  const entriesRef = collection(db, "entries");
-  const entriesSnap = await getDocs(entriesRef);
-  if (!entriesSnap.empty) {
-    return entriesSnap.docs.map(normalizeEntityDoc).filter(Boolean);
-  }
-
-  // Backward compatibility with older projects that still use "entities".
-  const entitiesRef = collection(db, "entities");
-  const entitiesSnap = await getDocs(entitiesRef);
-  return entitiesSnap.docs.map(normalizeEntityDoc).filter(Boolean);
+  const entriesSnap = await getDocs(collection(db, "entries"));
+  return entriesSnap.docs.map(normalizeEntityDoc).filter(Boolean);
 }
 
 export async function getAllEntriesForAdmin() {
-  const entriesRef = collection(db, "entries");
-  const entriesSnap = await getDocs(entriesRef);
-  if (!entriesSnap.empty) {
-    return entriesSnap.docs.map(normalizeAdminEntityDoc);
-  }
-
-  // Backward compatibility with older projects that still use "entities".
-  const entitiesRef = collection(db, "entities");
-  const entitiesSnap = await getDocs(entitiesRef);
-  return entitiesSnap.docs.map(normalizeAdminEntityDoc);
+  const entriesSnap = await getDocs(collection(db, "entries"));
+  return entriesSnap.docs.map(normalizeAdminEntityDoc);
 }
 
 export async function addEntity({
@@ -580,17 +564,10 @@ export async function updateEntry({
   source = "admin",
 }) {
   const entryRef = doc(db, "entries", entryId);
-  const legacyEntityRef = doc(db, "entities", entryId);
-  const [entrySnap, legacyEntitySnap] = await Promise.all([
-    getDoc(entryRef),
-    getDoc(legacyEntityRef),
-  ]);
-  const targetCollection = entrySnap.exists()
-    ? "entries"
-    : legacyEntitySnap.exists()
-      ? "entities"
-      : "entries";
-  const targetRef = targetCollection === "entries" ? entryRef : legacyEntityRef;
+  const entrySnap = await getDoc(entryRef);
+  if (!entrySnap.exists()) {
+    throw new Error("Entry not found.");
+  }
   const sanitized = sanitizeEntityPayload({
     type,
     name,
@@ -601,45 +578,26 @@ export async function updateEntry({
     source,
   });
 
-  await updateDoc(targetRef, {
+  await updateDoc(entryRef, {
     ...sanitized,
     coordinates: toFirestoreCoordinates(sanitized.coordinates),
     updatedAt: serverTimestamp(),
   });
 
-  console.info(`[firebase] Updated ${targetCollection}/${entryId}`);
+  console.info(`[firebase] Updated entries/${entryId}`);
 
   return { id: entryId, ...sanitized };
 }
 
 export async function deleteEntry(entryId) {
   const entryRef = doc(db, "entries", entryId);
-  const legacyEntityRef = doc(db, "entities", entryId);
-  const [entrySnap, legacyEntitySnap] = await Promise.all([
-    getDoc(entryRef),
-    getDoc(legacyEntityRef),
-  ]);
-
-  const deletes = [];
-  const deletedCollections = [];
-  if (entrySnap.exists()) {
-    deletes.push(deleteDoc(entryRef));
-    deletedCollections.push("entries");
-  }
-  if (legacyEntitySnap.exists()) {
-    deletes.push(deleteDoc(legacyEntityRef));
-    deletedCollections.push("entities");
-  }
-
-  // If neither exists, keep delete idempotent for UI flow.
-  if (deletes.length) {
-    await Promise.all(deletes);
-    console.info(
-      `[firebase] Deleted ${deletedCollections.join(", ")} document(s) for ID ${entryId}`,
-    );
-  } else {
+  const entrySnap = await getDoc(entryRef);
+  if (!entrySnap.exists()) {
     console.warn(`[firebase] No matching entry found to delete for ID ${entryId}`);
+    return;
   }
+  await deleteDoc(entryRef);
+  console.info(`[firebase] Deleted entries document for ID ${entryId}`);
 }
 
 export async function getPlaceInfoByName(placeName) {

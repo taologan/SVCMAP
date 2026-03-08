@@ -9,6 +9,7 @@ function Sidebar({
   visibleEntities,
   activeEntity,
   onFocusEntity,
+  onClearActiveEntity,
 }) {
   const [sortMode, setSortMode] = useState("map");
   const [nameFilter, setNameFilter] = useState("");
@@ -144,9 +145,13 @@ function Sidebar({
                   aria-current={
                     activeEntity?.id === entry.entity.id ? "true" : undefined
                   }
-                  onClick={() =>
-                    onFocusEntity(entry.entity, entry.visiblePoints)
-                  }
+                  onClick={() => {
+                    if (activeEntity?.id === entry.entity.id) {
+                      onClearActiveEntity?.();
+                      return;
+                    }
+                    onFocusEntity(entry.entity, entry.visiblePoints);
+                  }}
                 >
                   <span className="stack-type">{entry.entity.type}</span>
                   <strong>{entry.entity.name}</strong>

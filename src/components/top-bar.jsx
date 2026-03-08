@@ -1,4 +1,5 @@
 function TopBar({
+  topBarRef,
   isSigningIn,
   authUser,
   isCheckingAdmin,
@@ -8,7 +9,7 @@ function TopBar({
   onOpenStatusLookupModal,
 }) {
   return (
-    <header className="top-bar">
+    <header ref={topBarRef} className="top-bar">
       <div className="title-wrap">
         <p className="eyebrow">South-View Cemetery</p>
         <h1>Atlanta Community Story Map</h1>

@@ -16,6 +16,7 @@ import { addPending, lookupRequestStatus } from "./firebase";
 
 function App() {
   const mapContainerRef = useRef(null);
+  const topBarRef = useRef(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeEntity, setActiveEntity] = useState(null);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
@@ -23,6 +24,7 @@ function App() {
   const [submissionReceipt, setSubmissionReceipt] = useState(null);
   const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
   const [isStatusLookupOpen, setIsStatusLookupOpen] = useState(false);
+  const [overlayTop, setOverlayTop] = useState(128);
 
   const { isSigningIn, authUser, isAdmin, isCheckingAdmin, signIn } = useAuth();
   const { entities, entitiesStatus, entitiesError, reloadEntities } =
@@ -68,6 +70,30 @@ function App() {
     );
     if (!entityStillExists) setActiveEntity(null);
   }, [activeEntity, entities]);
+
+  useEffect(() => {
+    const topBar = topBarRef.current;
+    if (!topBar) return;
+
+    const updateOverlayTop = () => {
+      const { bottom } = topBar.getBoundingClientRect();
+      setOverlayTop(Math.ceil(bottom + 8));
+    };
+
+    updateOverlayTop();
+    window.addEventListener("resize", updateOverlayTop);
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateOverlayTop);
+      resizeObserver.observe(topBar);
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateOverlayTop);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, []);
 
   const handleAdminLogin = async () => {
     if (isAdmin) {
@@ -130,8 +156,9 @@ function App() {
 
   return (
     <main className="app">
-      <section className="map-shell">
+      <section className="map-shell" style={{ "--overlay-top": `${overlayTop}px` }}>
         <TopBar
+          topBarRef={topBarRef}
           isSigningIn={isSigningIn}
           authUser={authUser}
           isCheckingAdmin={isCheckingAdmin}
@@ -149,6 +176,7 @@ function App() {
           visibleEntities={visibleEntities}
           activeEntity={activeEntity}
           onFocusEntity={focusEntity}
+          onClearActiveEntity={() => setActiveEntity(null)}
         />
         <div ref={mapContainerRef} className="map" />
         <CoordinatePickerBanner

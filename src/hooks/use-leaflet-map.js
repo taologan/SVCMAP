@@ -15,6 +15,42 @@ import {
   getVisibleEntities,
 } from "../utils/map-helpers";
 
+function getHorizontalOverlayPadding(map) {
+  const mapShell = map.getContainer().parentElement;
+  const labelBuffer = 150;
+  if (!mapShell) {
+    return { left: 54 + labelBuffer, right: 80 + labelBuffer };
+  }
+
+  const sidebar = mapShell.querySelector(".visible-sidebar");
+  const drawer = mapShell.querySelector(".details-drawer");
+
+  let leftPadding = 54;
+  let rightPadding = 80;
+
+  if (sidebar instanceof HTMLElement) {
+    const sidebarStyles = window.getComputedStyle(sidebar);
+    const sidebarWidth = sidebar.getBoundingClientRect().width;
+    if (sidebarStyles.display !== "none" && sidebarWidth > 0) {
+      leftPadding = Math.ceil(sidebarWidth + 24);
+    }
+  }
+
+  if (drawer instanceof HTMLElement) {
+    const drawerStyles = window.getComputedStyle(drawer);
+    const drawerWidth = drawer.getBoundingClientRect().width;
+    const isSideDocked = drawerStyles.top !== "auto";
+    if (drawerStyles.display !== "none" && isSideDocked && drawerWidth > 0) {
+      rightPadding = Math.ceil(drawerWidth + 24);
+    }
+  }
+
+  return {
+    left: leftPadding + labelBuffer,
+    right: rightPadding + labelBuffer,
+  };
+}
+
 export function useLeafletMap({
   mapContainerRef,
   entities,
@@ -27,6 +63,7 @@ export function useLeafletMap({
   const markerLayerRef = useRef(null);
   const heatLayerRef = useRef(null);
   const coordinatePickResolveRef = useRef(null);
+  const isAutoNavigatingRef = useRef(false);
 
   const [zoom, setZoom] = useState(11);
   const [bounds, setBounds] = useState(null);
@@ -48,16 +85,18 @@ export function useLeafletMap({
 
       const pointsToShow =
         visiblePoints.length > 1 ? visiblePoints : entity.coordinates;
+      const overlayPadding = getHorizontalOverlayPadding(map);
 
       if (pointsToShow.length > 1) {
         const latLngBounds = L.latLngBounds(
           pointsToShow.map((coordinate) => L.latLng(coordinate)),
         );
+        isAutoNavigatingRef.current = true;
         map.flyToBounds(latLngBounds, {
           animate: true,
           duration: 0.65,
-          paddingTopLeft: L.point(isSidebarCollapsed ? 54 : 340, 120),
-          paddingBottomRight: L.point(450, 80),
+          paddingTopLeft: L.point(overlayPadding.left, 120),
+          paddingBottomRight: L.point(overlayPadding.right, 80),
           maxZoom: 15,
         });
         return;
@@ -68,13 +107,19 @@ export function useLeafletMap({
       const projectedTarget = map.project(targetLatLng, targetZoom);
       const mapSize = map.getSize();
       const viewportCenter = L.point(mapSize.x / 2, mapSize.y / 2);
-      const desiredPoint = L.point(mapSize.x * 0.33, mapSize.y / 2);
+      const availableWidth = Math.max(
+        mapSize.x - overlayPadding.left - overlayPadding.right,
+        120,
+      );
+      const desiredX = overlayPadding.left + availableWidth * 0.35;
+      const desiredPoint = L.point(desiredX, mapSize.y / 2);
       const offset = desiredPoint.subtract(viewportCenter);
       const offsetCenter = map.unproject(
         projectedTarget.subtract(offset),
         targetZoom,
       );
 
+      isAutoNavigatingRef.current = true;
       map.flyTo(offsetCenter, targetZoom, {
         animate: true,
         duration: 0.65,
@@ -113,22 +158,49 @@ export function useLeafletMap({
       setZoom(map.getZoom());
       setBounds(getBoundsSnapshot(map.getBounds()));
     };
-    const onSmoothZoom = () => {
+    let heatRedrawRafId = null;
+    const scheduleHeatRedraw = ({ requireAutoNavigation = false } = {}) => {
+      if (!heatLayerRef.current) return;
+      if (requireAutoNavigation && !isAutoNavigatingRef.current) return;
+      if (heatRedrawRafId !== null) return;
+      heatRedrawRafId = requestAnimationFrame(() => {
+        heatRedrawRafId = null;
+        if (heatLayerRef.current) heatLayerRef.current.redraw();
+      });
+    };
+    const handleHeatRedrawOnZoom = () => scheduleHeatRedraw();
+    const handleHeatRedrawOnMove = () =>
+      scheduleHeatRedraw({ requireAutoNavigation: true });
+    const finalizeHeatAfterMovement = () => {
+      isAutoNavigatingRef.current = false;
       if (heatLayerRef.current) heatLayerRef.current.redraw();
     };
+
     map.on("zoomend", syncViewportState);
     map.on("moveend", syncViewportState);
-    map.on("smoothzoom", onSmoothZoom);
+    map.on("smoothzoom", handleHeatRedrawOnZoom);
+    map.on("zoomanim", handleHeatRedrawOnZoom);
+    map.on("zoom", handleHeatRedrawOnZoom);
+    map.on("move", handleHeatRedrawOnMove);
+    map.on("zoomend", finalizeHeatAfterMovement);
+    map.on("moveend", finalizeHeatAfterMovement);
 
     return () => {
+      if (heatRedrawRafId !== null) cancelAnimationFrame(heatRedrawRafId);
       map.off("zoomend", syncViewportState);
       map.off("moveend", syncViewportState);
-      map.off("smoothzoom", onSmoothZoom);
+      map.off("smoothzoom", handleHeatRedrawOnZoom);
+      map.off("zoomanim", handleHeatRedrawOnZoom);
+      map.off("zoom", handleHeatRedrawOnZoom);
+      map.off("move", handleHeatRedrawOnMove);
+      map.off("zoomend", finalizeHeatAfterMovement);
+      map.off("moveend", finalizeHeatAfterMovement);
       map.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
       markerLayerRef.current = null;
       heatLayerRef.current = null;
+      isAutoNavigatingRef.current = false;
     };
   }, [mapContainerRef]);
 
@@ -178,6 +250,20 @@ export function useLeafletMap({
   }, [isPickingCoordinates]);
 
   useEffect(() => {
+    if (!mapRef.current || isPickingCoordinates) return;
+    const map = mapRef.current;
+
+    const handleMapBackgroundClick = () => {
+      setActiveEntity((current) => (current ? null : current));
+    };
+
+    map.on("click", handleMapBackgroundClick);
+    return () => {
+      map.off("click", handleMapBackgroundClick);
+    };
+  }, [isPickingCoordinates, setActiveEntity]);
+
+  useEffect(() => {
     if (!mapRef.current || !markerLayerRef.current) return;
     const map = mapRef.current;
     const markerLayer = markerLayerRef.current;
@@ -194,6 +280,11 @@ export function useLeafletMap({
     }
 
     const showHeat = zoom <= HEAT_VISIBILITY_ZOOM;
+    const shouldShowSelectedMarkersWhenZoomedOut = Boolean(activeEntity);
+    const markersToRender =
+      showMarkers || !shouldShowSelectedMarkersWhenZoomedOut
+        ? pointEntities
+        : pointEntities.filter((pointEntity) => pointEntity.entity.id === activeEntity.id);
 
     if (showHeat) {
       heatLayerRef.current = L.heatLayer(heatData.points, {
@@ -211,8 +302,8 @@ export function useLeafletMap({
       }).addTo(map);
     }
 
-    if (showMarkers) {
-      pointEntities.forEach((pointEntity) => {
+    if (showMarkers || shouldShowSelectedMarkersWhenZoomedOut) {
+      markersToRender.forEach((pointEntity) => {
         const { entity, coordinate, pointIndex } = pointEntity;
         const isActive = activeEntity?.id === entity.id;
         const marker = L.circleMarker(coordinate, {
@@ -221,6 +312,7 @@ export function useLeafletMap({
           weight: isActive ? 2 : 1,
           fillColor: isActive ? "#60a5fa" : "#f4a261",
           fillOpacity: isActive ? 1 : 0.88,
+          bubblingMouseEvents: false,
         });
 
         marker.bindTooltip(entity.name, {
@@ -232,7 +324,15 @@ export function useLeafletMap({
         marker.addTo(markerLayer);
       });
     }
-  }, [activeEntity, focusEntity, heatData, pointEntities, setActiveEntity, zoom]);
+  }, [
+    activeEntity,
+    focusEntity,
+    heatData,
+    pointEntities,
+    setActiveEntity,
+    showMarkers,
+    zoom,
+  ]);
 
   return {
     mapRef,
