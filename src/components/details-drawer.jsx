@@ -28,7 +28,7 @@ function DetailsDrawer({ activeEntity, onClose }) {
           <div className="drawer-body">
             <p>{activeEntity.summary}</p>
             <p>
-              <strong>Dates:</strong> {activeEntity.dates}
+              <strong>Role:</strong> {activeEntity.dates}
             </p>
             {activeEntity.uploadedFiles?.length ? (
               <div className="file-list">
