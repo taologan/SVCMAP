@@ -460,13 +460,15 @@ export async function denyPending({
   const pendingData = pendingSnap.exists() ? pendingSnap.data() : {};
   const batch = writeBatch(db);
 
-  batch.update(pendingDocRef, {
-    status: "denied",
-    reviewNotes,
-    reviewedBy,
-    reviewedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  if (pendingSnap.exists()) {
+    batch.update(pendingDocRef, {
+      status: "denied",
+      reviewNotes,
+      reviewedBy,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
   batch.set(
     requestStatusRef,
     {
@@ -484,6 +486,16 @@ export async function denyPending({
     { merge: true },
   );
   await batch.commit();
+
+  if (!pendingSnap.exists()) {
+    console.warn(
+      `[firebase] denyPending: pending/${pendingId} was already processed or removed`,
+    );
+  }
+
+  return {
+    alreadyProcessed: !pendingSnap.exists(),
+  };
 }
 
 export async function lookupRequestStatus({

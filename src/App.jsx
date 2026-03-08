@@ -12,30 +12,35 @@ import CoordinatePickerBanner from "./components/coordinate-picker-banner";
 import { useAuth } from "./hooks/use-auth";
 import { useLeafletMap } from "./hooks/use-leaflet-map";
 import { useMapEntities } from "./hooks/use-map-entities";
-import { useStatusLookup } from "./hooks/use-status-lookup";
-import { useWaypointForm } from "./hooks/use-waypoint-form";
+import { addPending, lookupRequestStatus } from "./firebase";
 
 function App() {
   const mapContainerRef = useRef(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeEntity, setActiveEntity] = useState(null);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [submissionReceipt, setSubmissionReceipt] = useState(null);
+  const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
+  const [isStatusLookupOpen, setIsStatusLookupOpen] = useState(false);
 
   const { isSigningIn, authUser, isAdmin, isCheckingAdmin, signIn } = useAuth();
   const { entities, entitiesStatus, entitiesError, reloadEntities } =
     useMapEntities();
-  const { mapRef, showMarkers, visibleEntities, focusEntity } = useLeafletMap({
+  const {
+    showMarkers,
+    visibleEntities,
+    focusEntity,
+    isPickingCoordinates,
+    requestCoordinatePick,
+    cancelCoordinatePick,
+  } = useLeafletMap({
     mapContainerRef,
     entities,
     activeEntity,
     setActiveEntity,
     isSidebarCollapsed,
   });
-  const waypointForm = useWaypointForm(mapRef);
-  const statusLookup = useStatusLookup();
-  const closeSubmissionSuccess = waypointForm.closeSubmissionSuccess;
-  const dismissAddModal = waypointForm.dismissAddModal;
-  const dismissStatusLookupModal = statusLookup.dismissStatusLookupModal;
 
   useEffect(() => {
     setIsAdminPanelOpen(false);
@@ -45,15 +50,16 @@ function App() {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         setActiveEntity(null);
-        dismissAddModal();
-        closeSubmissionSuccess();
-        dismissStatusLookupModal();
+        setIsAddModalOpen(false);
+        setIsSubmissionSuccessOpen(false);
+        setIsStatusLookupOpen(false);
+        cancelCoordinatePick();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeSubmissionSuccess, dismissAddModal, dismissStatusLookupModal]);
+  }, [cancelCoordinatePick]);
 
   useEffect(() => {
     if (!activeEntity) return;
@@ -76,6 +82,52 @@ function App() {
     }
   };
 
+  const handleSubmitWaypoint = async ({
+    name,
+    story,
+    latitude,
+    longitude,
+    contactEmail,
+    contactPhone,
+    files,
+  }) => {
+    try {
+      const pendingRequest = await addPending({
+        type: "submission",
+        name,
+        summary: story,
+        dates: "Community submission",
+        coordinates: [[latitude, longitude]],
+        uploadedFiles: files.map((file) => file.name),
+        source: "user",
+        submitterEmail: contactEmail,
+        submitterPhone: contactPhone,
+      });
+
+      return {
+        id: pendingRequest.id,
+        name,
+        contactEmail,
+        contactPhone,
+      };
+    } catch (error) {
+      console.error("Failed to save waypoint to Firestore:", error);
+      throw new Error("Could not save to Firebase. Please try again.");
+    }
+  };
+
+  const handleSubmissionSuccess = (receipt) => {
+    setSubmissionReceipt(receipt);
+    setIsSubmissionSuccessOpen(true);
+  };
+
+  const handleStatusLookup = async ({ contactEmail, contactPhone }) => {
+    return lookupRequestStatus({
+      submitterEmail: contactEmail,
+      submitterPhone: contactPhone,
+    });
+  };
+
   return (
     <main className="app">
       <section className="map-shell">
@@ -85,8 +137,8 @@ function App() {
           isCheckingAdmin={isCheckingAdmin}
           isAdmin={isAdmin}
           onAdminLogin={handleAdminLogin}
-          onOpenAddModal={waypointForm.openAddModal}
-          onOpenStatusLookupModal={statusLookup.openStatusLookupModal}
+          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenStatusLookupModal={() => setIsStatusLookupOpen(true)}
         />
         <Sidebar
           isSidebarCollapsed={isSidebarCollapsed}
@@ -100,8 +152,8 @@ function App() {
         />
         <div ref={mapContainerRef} className="map" />
         <CoordinatePickerBanner
-          isVisible={waypointForm.isPickingCoordinates}
-          onCancel={waypointForm.cancelCoordinatePicker}
+          isVisible={isPickingCoordinates}
+          onCancel={cancelCoordinatePick}
         />
         <DetailsDrawer
           activeEntity={activeEntity}
@@ -110,31 +162,21 @@ function App() {
       </section>
 
       <AddWaypointModal
-        isOpen={waypointForm.isAddModalOpen}
-        waypointForm={waypointForm.waypointForm}
-        formError={waypointForm.formError}
-        isSavingWaypoint={waypointForm.isSavingWaypoint}
-        onClose={waypointForm.closeAddModal}
-        onSubmit={waypointForm.handleAddWaypoint}
-        onFieldChange={waypointForm.handleFieldChange}
-        onFileChange={waypointForm.handleFileChange}
-        onStartCoordinatePicker={waypointForm.startCoordinatePicker}
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmitWaypoint={handleSubmitWaypoint}
+        onSubmissionSuccess={handleSubmissionSuccess}
+        onRequestCoordinatePick={requestCoordinatePick}
       />
       <SubmissionSuccessModal
-        isOpen={waypointForm.isSubmissionSuccessOpen}
-        submissionReceipt={waypointForm.submissionReceipt}
-        onClose={waypointForm.closeSubmissionSuccess}
+        isOpen={isSubmissionSuccessOpen}
+        submissionReceipt={submissionReceipt}
+        onClose={() => setIsSubmissionSuccessOpen(false)}
       />
       <StatusLookupModal
-        isOpen={statusLookup.isStatusLookupOpen}
-        statusLookupForm={statusLookup.statusLookupForm}
-        statusLookupError={statusLookup.statusLookupError}
-        hasStatusLookupAttempted={statusLookup.hasStatusLookupAttempted}
-        statusLookupResult={statusLookup.statusLookupResult}
-        isCheckingStatusLookup={statusLookup.isCheckingStatusLookup}
-        onClose={statusLookup.closeStatusLookupModal}
-        onFieldChange={statusLookup.handleStatusLookupFieldChange}
-        onSubmit={statusLookup.handleStatusLookup}
+        isOpen={isStatusLookupOpen}
+        onClose={() => setIsStatusLookupOpen(false)}
+        onLookup={handleStatusLookup}
       />
       <AdminPanel
         isOpen={isAdmin && isAdminPanelOpen}

@@ -1,15 +1,106 @@
+import { useEffect, useState } from "react";
+import { EMPTY_FORM } from "../constants";
+
 function AddWaypointModal({
   isOpen,
-  waypointForm,
-  formError,
-  isSavingWaypoint,
   onClose,
-  onSubmit,
-  onFieldChange,
-  onFileChange,
-  onStartCoordinatePicker,
+  onSubmitWaypoint,
+  onSubmissionSuccess,
+  onRequestCoordinatePick,
 }) {
-  if (!isOpen) return null;
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState("");
+  const [isSavingWaypoint, setIsSavingWaypoint] = useState(false);
+  const [isPickingCoordinates, setIsPickingCoordinates] = useState(false);
+  const [isTemporarilyHidden, setIsTemporarilyHidden] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm(EMPTY_FORM);
+    setFormError("");
+    setIsSavingWaypoint(false);
+    setIsPickingCoordinates(false);
+    setIsTemporarilyHidden(false);
+  }, [isOpen]);
+
+  if (!isOpen || isTemporarilyHidden) return null;
+
+  const handleFieldChange = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleFileChange = (event) => {
+    const fileList = event.target.files ? Array.from(event.target.files) : [];
+    setForm((current) => ({ ...current, files: fileList }));
+  };
+
+  const handlePickCoordinates = async () => {
+    setFormError("");
+    setIsPickingCoordinates(true);
+    setIsTemporarilyHidden(true);
+    const picked = await onRequestCoordinatePick?.();
+    setIsTemporarilyHidden(false);
+    setIsPickingCoordinates(false);
+    if (!picked) return;
+    setForm((current) => ({
+      ...current,
+      latitude: picked.latitude,
+      longitude: picked.longitude,
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const latitude = Number(form.latitude);
+    const longitude = Number(form.longitude);
+    const name = form.name.trim();
+    const story = form.story.trim();
+    const contactEmail = form.contactEmail.trim();
+    const contactPhone = form.contactPhone.trim();
+
+    if (!name || !story) {
+      setFormError("Name and story are required.");
+      return;
+    }
+    if (!contactEmail) {
+      setFormError("Please provide an email address.");
+      return;
+    }
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+      setFormError("Latitude and longitude must be valid numbers.");
+      return;
+    }
+    if (
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setFormError("Coordinates are out of range.");
+      return;
+    }
+
+    setFormError("");
+    setIsSavingWaypoint(true);
+    try {
+      const submissionReceipt = await onSubmitWaypoint({
+        name,
+        story,
+        latitude,
+        longitude,
+        contactEmail,
+        contactPhone,
+        files: form.files,
+      });
+      onClose?.();
+      onSubmissionSuccess?.(submissionReceipt);
+    } catch (error) {
+      setFormError(error?.message || "Could not save to Firebase. Please try again.");
+    } finally {
+      setIsSavingWaypoint(false);
+    }
+  };
 
   return (
     <div className="entity-modal-backdrop" role="presentation" onClick={onClose}>
@@ -25,14 +116,14 @@ function AddWaypointModal({
         </button>
         <p className="eyebrow">New waypoint request</p>
         <h2>Add a Waypoint</h2>
-        <form className="add-waypoint-form" onSubmit={onSubmit}>
+        <form className="add-waypoint-form" onSubmit={handleSubmit}>
           <label>
             Name
             <input
               name="name"
               type="text"
-              value={waypointForm.name}
-              onChange={onFieldChange}
+              value={form.name}
+              onChange={handleFieldChange}
               placeholder="Person or place name"
               required
             />
@@ -41,8 +132,8 @@ function AddWaypointModal({
             Story
             <textarea
               name="story"
-              value={waypointForm.story}
-              onChange={onFieldChange}
+              value={form.story}
+              onChange={handleFieldChange}
               placeholder="Short story or description"
               rows={4}
               required
@@ -55,8 +146,8 @@ function AddWaypointModal({
                 name="latitude"
                 type="number"
                 step="any"
-                value={waypointForm.latitude}
-                onChange={onFieldChange}
+                value={form.latitude}
+                onChange={handleFieldChange}
                 placeholder="33.7490"
                 required
               />
@@ -67,8 +158,8 @@ function AddWaypointModal({
                 name="longitude"
                 type="number"
                 step="any"
-                value={waypointForm.longitude}
-                onChange={onFieldChange}
+                value={form.longitude}
+                onChange={handleFieldChange}
                 placeholder="-84.3880"
                 required
               />
@@ -79,8 +170,8 @@ function AddWaypointModal({
             <input
               name="contactEmail"
               type="email"
-              value={waypointForm.contactEmail}
-              onChange={onFieldChange}
+              value={form.contactEmail}
+              onChange={handleFieldChange}
               placeholder="you@example.org"
               required
             />
@@ -90,8 +181,8 @@ function AddWaypointModal({
             <input
               name="contactPhone"
               type="tel"
-              value={waypointForm.contactPhone}
-              onChange={onFieldChange}
+              value={form.contactPhone}
+              onChange={handleFieldChange}
               placeholder="404-555-1234"
             />
           </label>
@@ -101,17 +192,20 @@ function AddWaypointModal({
           <button
             type="button"
             className="pick-coord-btn"
-            onClick={onStartCoordinatePicker}
+            onClick={handlePickCoordinates}
+            disabled={isPickingCoordinates}
           >
-            Select coordinates on map
+            {isPickingCoordinates
+              ? "Click on the map to set coordinates..."
+              : "Select coordinates on map"}
           </button>
           <label>
             Upload files
-            <input type="file" accept="image/*" multiple onChange={onFileChange} />
+            <input type="file" accept="image/*" multiple onChange={handleFileChange} />
           </label>
-          {waypointForm.files.length ? (
+          {form.files.length ? (
             <ul className="selected-files">
-              {waypointForm.files.map((file) => (
+              {form.files.map((file) => (
                 <li key={`${file.name}-${file.size}`}>{file.name}</li>
               ))}
             </ul>

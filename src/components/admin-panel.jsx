@@ -282,7 +282,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     setError("");
     setSuccessMessage("");
     try {
-      await denyPending({
+      const denyResult = await denyPending({
         pendingId: pendingDraft.id,
         reviewedBy: userEmail ?? null,
       });
@@ -290,7 +290,11 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       const remainingPending = pendingItems.filter((item) => item.id !== pendingDraft.id);
       setPendingItems(remainingPending);
       setSelectedPendingId(remainingPending[0]?.id ?? null);
-      setSuccessMessage("Request denied.");
+      setSuccessMessage(
+        denyResult?.alreadyProcessed
+          ? "Request was already processed elsewhere and has been removed from the pending list."
+          : "Request denied.",
+      );
     } catch (denyError) {
       console.error("Failed to deny pending request:", denyError);
       setError("Could not deny request.");

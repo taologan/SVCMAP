@@ -26,9 +26,11 @@ export function useLeafletMap({
   const tileLayerRef = useRef(null);
   const markerLayerRef = useRef(null);
   const heatLayerRef = useRef(null);
+  const coordinatePickResolveRef = useRef(null);
 
   const [zoom, setZoom] = useState(11);
   const [bounds, setBounds] = useState(null);
+  const [isPickingCoordinates, setIsPickingCoordinates] = useState(false);
 
   const pointEntities = useMemo(() => flattenPointEntities(entities), [entities]);
   const heatData = useMemo(() => buildHeatData(pointEntities), [pointEntities]);
@@ -130,6 +132,51 @@ export function useLeafletMap({
     };
   }, [mapContainerRef]);
 
+  const requestCoordinatePick = useCallback(() => {
+    return new Promise((resolve) => {
+      // Resolve any previous in-flight request to avoid leaking pending promises.
+      if (coordinatePickResolveRef.current) {
+        coordinatePickResolveRef.current(null);
+      }
+      coordinatePickResolveRef.current = resolve;
+      setIsPickingCoordinates(true);
+    });
+  }, []);
+
+  const cancelCoordinatePick = useCallback(() => {
+    setIsPickingCoordinates(false);
+    if (coordinatePickResolveRef.current) {
+      coordinatePickResolveRef.current(null);
+      coordinatePickResolveRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !isPickingCoordinates) return;
+    const map = mapRef.current;
+    const container = map.getContainer();
+    container.style.cursor = "crosshair";
+
+    const handleMapClick = (event) => {
+      const { lat, lng } = event.latlng;
+      if (coordinatePickResolveRef.current) {
+        coordinatePickResolveRef.current({
+          latitude: lat.toFixed(6),
+          longitude: lng.toFixed(6),
+        });
+        coordinatePickResolveRef.current = null;
+      }
+      setIsPickingCoordinates(false);
+    };
+
+    map.on("click", handleMapClick);
+
+    return () => {
+      map.off("click", handleMapClick);
+      container.style.cursor = "";
+    };
+  }, [isPickingCoordinates]);
+
   useEffect(() => {
     if (!mapRef.current || !markerLayerRef.current) return;
     const map = mapRef.current;
@@ -193,5 +240,8 @@ export function useLeafletMap({
     showMarkers,
     visibleEntities,
     focusEntity,
+    isPickingCoordinates,
+    requestCoordinatePick,
+    cancelCoordinatePick,
   };
 }
