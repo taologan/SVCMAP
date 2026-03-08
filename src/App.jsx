@@ -118,7 +118,7 @@ function App() {
     longitude,
     contactEmail,
     contactPhone,
-    files,
+    files = [],
   }) => {
     try {
       const pendingRequest = await addPending({
@@ -127,7 +127,7 @@ function App() {
         summary: story,
         dates: "Community submission",
         coordinates: [[latitude, longitude]],
-        uploadedFiles: files.map((file) => file.name),
+        uploadedFiles: files,
         source: "user",
         submitterEmail: contactEmail,
         submitterPhone: contactPhone,

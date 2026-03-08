@@ -1,5 +1,16 @@
 function DetailsDrawer({ activeEntity, onClose }) {
   const isLink = (value) => /^https?:\/\//i.test(value);
+  const isImageLink = (value) => {
+    if (!isLink(value)) return false;
+
+    try {
+      const parsed = new URL(value);
+      const decodedPath = decodeURIComponent(parsed.pathname).toLowerCase();
+      return /\.(avif|bmp|gif|heic|heif|jpe?g|png|svg|webp)$/.test(decodedPath);
+    } catch {
+      return false;
+    }
+  };
 
   return (
     <aside className={activeEntity ? "details-drawer" : "details-drawer empty"}>
@@ -23,15 +34,33 @@ function DetailsDrawer({ activeEntity, onClose }) {
               <div className="file-list">
                 <strong>Files:</strong>
                 <ul>
-                  {activeEntity.uploadedFiles.map((fileName) => {
-                    if (!isLink(fileName)) {
-                      return <li key={fileName}>{fileName}</li>;
+                  {activeEntity.uploadedFiles.map((fileRef) => {
+                    if (!isLink(fileRef)) {
+                      return <li key={fileRef}>{fileRef}</li>;
+                    }
+
+                    if (isImageLink(fileRef)) {
+                      return (
+                        <li key={fileRef} className="file-item image">
+                          <a href={fileRef} target="_blank" rel="noreferrer">
+                            <img
+                              src={fileRef}
+                              alt="Uploaded waypoint"
+                              className="file-image-preview"
+                              loading="lazy"
+                            />
+                          </a>
+                          <a href={fileRef} target="_blank" rel="noreferrer">
+                            Open image
+                          </a>
+                        </li>
+                      );
                     }
 
                     return (
-                      <li key={fileName}>
-                        <a href={fileName} target="_blank" rel="noreferrer">
-                          {fileName}
+                      <li key={fileRef}>
+                        <a href={fileRef} target="_blank" rel="noreferrer">
+                          {fileRef}
                         </a>
                       </li>
                     );
