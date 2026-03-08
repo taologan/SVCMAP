@@ -120,7 +120,7 @@
 .visible-sidebar {
     position: absolute;
     left: 0.8rem;
-    top: 8rem;
+    top: var(--overlay-top, 8rem);
     bottom: 0.8rem;
     z-index: 910;
     width: min(320px, calc(100% - 1.6rem));
@@ -301,7 +301,7 @@
 .map-pick-banner {
     position: absolute;
     left: 50%;
-    top: 7.2rem;
+    top: var(--overlay-top, 8rem);
     transform: translateX(-50%);
     z-index: 920;
     display: flex;
@@ -326,7 +326,7 @@
 .details-drawer {
     position: absolute;
     right: 0.8rem;
-    top: 8rem;
+    top: var(--overlay-top, 8rem);
     z-index: 905;
     width: min(420px, calc(100% - 4.1rem));
     max-height: calc(100% - 1.6rem);
@@ -712,7 +712,6 @@
     .visible-sidebar {
         width: min(300px, calc(100% - 1.5rem));
         left: 0.75rem;
-        top: 10.1rem;
         bottom: 0.75rem;
     }
 
@@ -720,7 +719,6 @@
         width: calc(100% - 1.5rem);
         justify-content: space-between;
         font-size: 0.84rem;
-        top: 9.35rem;
     }
 
     .details-drawer {

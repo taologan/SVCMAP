@@ -235,29 +235,13 @@ function sanitizeContactPayload(payload) {
 }
 
 export async function getEntities() {
-  const entriesRef = collection(db, "entries");
-  const entriesSnap = await getDocs(entriesRef);
-  if (!entriesSnap.empty) {
-    return entriesSnap.docs.map(normalizeEntityDoc).filter(Boolean);
-  }
-
-  // Backward compatibility with older projects that still use "entities".
-  const entitiesRef = collection(db, "entities");
-  const entitiesSnap = await getDocs(entitiesRef);
-  return entitiesSnap.docs.map(normalizeEntityDoc).filter(Boolean);
+  const entriesSnap = await getDocs(collection(db, "entries"));
+  return entriesSnap.docs.map(normalizeEntityDoc).filter(Boolean);
 }
 
 export async function getAllEntriesForAdmin() {
-  const entriesRef = collection(db, "entries");
-  const entriesSnap = await getDocs(entriesRef);
-  if (!entriesSnap.empty) {
-    return entriesSnap.docs.map(normalizeAdminEntityDoc);
-  }
-
-  // Backward compatibility with older projects that still use "entities".
-  const entitiesRef = collection(db, "entities");
-  const entitiesSnap = await getDocs(entitiesRef);
-  return entitiesSnap.docs.map(normalizeAdminEntityDoc);
+  const entriesSnap = await getDocs(collection(db, "entries"));
+  return entriesSnap.docs.map(normalizeAdminEntityDoc);
 }
 
 export async function addEntity({
@@ -460,13 +444,15 @@ export async function denyPending({
   const pendingData = pendingSnap.exists() ? pendingSnap.data() : {};
   const batch = writeBatch(db);
 
-  batch.update(pendingDocRef, {
-    status: "denied",
-    reviewNotes,
-    reviewedBy,
-    reviewedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  if (pendingSnap.exists()) {
+    batch.update(pendingDocRef, {
+      status: "denied",
+      reviewNotes,
+      reviewedBy,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
   batch.set(
     requestStatusRef,
     {
@@ -484,6 +470,16 @@ export async function denyPending({
     { merge: true },
   );
   await batch.commit();
+
+  if (!pendingSnap.exists()) {
+    console.warn(
+      `[firebase] denyPending: pending/${pendingId} was already processed or removed`,
+    );
+  }
+
+  return {
+    alreadyProcessed: !pendingSnap.exists(),
+  };
 }
 
 export async function lookupRequestStatus({
@@ -568,6 +564,10 @@ export async function updateEntry({
   source = "admin",
 }) {
   const entryRef = doc(db, "entries", entryId);
+  const entrySnap = await getDoc(entryRef);
+  if (!entrySnap.exists()) {
+    throw new Error("Entry not found.");
+  }
   const sanitized = sanitizeEntityPayload({
     type,
     name,
@@ -584,11 +584,20 @@ export async function updateEntry({
     updatedAt: serverTimestamp(),
   });
 
+  console.info(`[firebase] Updated entries/${entryId}`);
+
   return { id: entryId, ...sanitized };
 }
 
 export async function deleteEntry(entryId) {
-  await deleteDoc(doc(db, "entries", entryId));
+  const entryRef = doc(db, "entries", entryId);
+  const entrySnap = await getDoc(entryRef);
+  if (!entrySnap.exists()) {
+    console.warn(`[firebase] No matching entry found to delete for ID ${entryId}`);
+    return;
+  }
+  await deleteDoc(entryRef);
+  console.info(`[firebase] Deleted entries document for ID ${entryId}`);
 }
 
 export async function getPlaceInfoByName(placeName) {

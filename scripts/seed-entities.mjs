@@ -231,7 +231,7 @@ async function seedEntities() {
 
   for (const entity of MOCK_ENTITIES) validateEntity(entity)
 
-  const entitiesRef = collection(db, 'entities')
+  const entriesRef = collection(db, 'entries')
   let processed = 0
 
   while (processed < MOCK_ENTITIES.length) {
@@ -239,7 +239,7 @@ async function seedEntities() {
     const batch = writeBatch(db)
 
     for (const entity of chunk) {
-      const docRef = doc(entitiesRef, entity.id)
+      const docRef = doc(entriesRef, entity.id)
       batch.set(
         docRef,
         {
@@ -259,7 +259,7 @@ async function seedEntities() {
 
     await batch.commit()
     processed += chunk.length
-    console.log(`Committed ${processed}/${MOCK_ENTITIES.length} entities`)
+    console.log(`Committed ${processed}/${MOCK_ENTITIES.length} entries`)
   }
 
   console.log('Seed complete.')
