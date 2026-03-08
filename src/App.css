@@ -671,6 +671,78 @@
     background: #74c0e0;
 }
 
+.tutorial-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    pointer-events: none;
+}
+
+.tutorial-spotlight {
+    position: fixed;
+    border-radius: 0.65rem;
+    border: 2px solid #ffd07a;
+    box-shadow: 0 0 0 9999px rgba(22, 14, 5, 0.62);
+}
+
+.tutorial-card {
+    position: fixed;
+    pointer-events: auto;
+    border: 1px solid #deceb2;
+    border-radius: 0.75rem;
+    background: #fffdf8;
+    padding: 0.8rem 0.85rem;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.3);
+    max-width: calc(100vw - 1.5rem);
+}
+
+.tutorial-step-count {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.72rem;
+    color: #86572a;
+}
+
+.tutorial-card h2 {
+    margin: 0.25rem 0 0.35rem;
+    font-size: 1.07rem;
+}
+
+.tutorial-card p {
+    margin: 0;
+    color: #484848;
+}
+
+.tutorial-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.tutorial-actions button {
+    border: 1px solid #cdbb9f;
+    border-radius: 0.42rem;
+    background: #fff;
+    color: #2a2a2a;
+    padding: 0.34rem 0.58rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tutorial-actions button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.tutorial-actions .tutorial-next-btn {
+    border-color: #8f551f;
+    background: #f6ad64;
+    color: #1f2630;
+}
+
 @media (max-width: 900px) {
     .top-bar {
         flex-direction: column;
@@ -720,5 +792,11 @@
 
     .admin-list {
         max-height: 30vh;
+    }
+
+    .tutorial-card {
+        left: 0.75rem !important;
+        right: 0.75rem;
+        width: auto !important;
     }
 }
