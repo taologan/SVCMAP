@@ -1,0 +1,268 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  updateDoc,
+  writeBatch,
+} from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
+import { db, storage } from "./client";
+import {
+  normalizeEntityDoc,
+  sanitizeContactPayload,
+  sanitizeEntityPayload,
+  toFirestoreCoordinates,
+} from "./normalizers";
+
+function isBrowserFile(value) {
+  return typeof File !== "undefined" && value instanceof File;
+}
+
+function sanitizeFileName(fileName) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+async function resolveUploadedFilesForPending(pendingId, uploadedFiles) {
+  if (!Array.isArray(uploadedFiles)) return [];
+
+  const existingUrls = [];
+  const filesToUpload = [];
+
+  uploadedFiles.forEach((file) => {
+    if (typeof file === "string") {
+      const url = file.trim();
+      if (url) existingUrls.push(url);
+      return;
+    }
+
+    if (isBrowserFile(file)) {
+      filesToUpload.push(file);
+    }
+  });
+
+  if (!filesToUpload.length) {
+    return existingUrls;
+  }
+
+  const timestamp = Date.now();
+  const uploadedUrls = await Promise.all(
+    filesToUpload.map(async (file, index) => {
+      const normalizedName = sanitizeFileName(file.name || `upload-${index}`);
+      const objectPath = `pending/${pendingId}/${timestamp}-${index}-${normalizedName}`;
+      const objectRef = storageRef(storage, objectPath);
+      await uploadBytes(objectRef, file);
+      return getDownloadURL(objectRef);
+    }),
+  );
+
+  return [...existingUrls, ...uploadedUrls];
+}
+
+export async function getPending() {
+  const pendingRef = collection(db, "pending");
+  const pendingSnap = await getDocs(pendingRef);
+
+  return pendingSnap.docs
+    .filter((snapshot) => {
+      const status = snapshot.data().status;
+      return !status || status === "pending";
+    })
+    .map(normalizeEntityDoc)
+    .filter(Boolean);
+}
+
+export async function addPending({
+  type = "submission",
+  name,
+  summary,
+  dates = "Community submission",
+  coordinates,
+  uploadedFiles = [],
+  source = "user",
+  submitterEmail = "",
+  submitterPhone = "",
+}) {
+  const pendingCollection = collection(db, "pending");
+  const pendingRef = doc(pendingCollection);
+  const requestStatusRef = doc(db, "requestStatuses", pendingRef.id);
+  const uploadedFileUrls = await resolveUploadedFilesForPending(
+    pendingRef.id,
+    uploadedFiles,
+  );
+  const sanitized = sanitizeEntityPayload({
+    type,
+    name,
+    summary,
+    dates,
+    coordinates,
+    uploadedFiles: uploadedFileUrls,
+    source,
+  });
+  const contact = sanitizeContactPayload({ submitterEmail, submitterPhone });
+  const batch = writeBatch(db);
+
+  batch.set(pendingRef, {
+    id: pendingRef.id,
+    ...sanitized,
+    ...contact,
+    coordinates: toFirestoreCoordinates(sanitized.coordinates),
+    status: "pending",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(requestStatusRef, {
+    id: pendingRef.id,
+    status: "pending",
+    name: sanitized.name,
+    ...contact,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+
+  return {
+    id: pendingRef.id,
+    ...sanitized,
+    ...contact,
+    status: "pending",
+  };
+}
+
+export async function updatePending({
+  pendingId,
+  type,
+  name,
+  summary,
+  dates,
+  coordinates,
+  uploadedFiles,
+  source = "user",
+}) {
+  const pendingDocRef = doc(db, "pending", pendingId);
+  const sanitized = sanitizeEntityPayload({
+    type,
+    name,
+    summary,
+    dates,
+    coordinates,
+    uploadedFiles,
+    source,
+  });
+
+  await updateDoc(pendingDocRef, {
+    ...sanitized,
+    coordinates: toFirestoreCoordinates(sanitized.coordinates),
+    updatedAt: serverTimestamp(),
+  });
+
+  return { id: pendingId, ...sanitized };
+}
+
+export async function approvePending({
+  pendingId,
+  reviewedBy = null,
+  updates = {},
+}) {
+  const pendingRef = doc(db, "pending", pendingId);
+  const pendingSnap = await getDoc(pendingRef);
+  if (!pendingSnap.exists()) {
+    throw new Error("Pending entry not found.");
+  }
+
+  const pendingData = pendingSnap.data();
+  const requestStatusRef = doc(db, "requestStatuses", pendingId);
+  const sanitized = sanitizeEntityPayload({
+    ...pendingData,
+    ...updates,
+  });
+
+  if (!sanitized.coordinates.length) {
+    throw new Error("Cannot approve an entry without coordinates.");
+  }
+
+  const entryRef = doc(db, "entries", pendingId);
+  const batch = writeBatch(db);
+  batch.set(entryRef, {
+    id: pendingId,
+    ...sanitized,
+    coordinates: toFirestoreCoordinates(sanitized.coordinates),
+    approvedAt: serverTimestamp(),
+    approvedBy: reviewedBy,
+    updatedAt: serverTimestamp(),
+    createdAt: pendingData.createdAt ?? serverTimestamp(),
+  });
+  batch.set(
+    requestStatusRef,
+    {
+      id: pendingId,
+      status: "approved",
+      name: sanitized.name,
+      submitterEmail: pendingData.submitterEmail ?? null,
+      submitterEmailLower: pendingData.submitterEmailLower ?? null,
+      submitterPhone: pendingData.submitterPhone ?? null,
+      reviewedBy,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  batch.delete(pendingRef);
+  await batch.commit();
+
+  return { id: pendingId, ...sanitized };
+}
+
+export async function denyPending({
+  pendingId,
+  reviewedBy = null,
+  reviewNotes = "",
+}) {
+  const pendingDocRef = doc(db, "pending", pendingId);
+  const requestStatusRef = doc(db, "requestStatuses", pendingId);
+  const pendingSnap = await getDoc(pendingDocRef);
+  const pendingData = pendingSnap.exists() ? pendingSnap.data() : {};
+  const batch = writeBatch(db);
+
+  if (pendingSnap.exists()) {
+    batch.update(pendingDocRef, {
+      status: "denied",
+      reviewNotes,
+      reviewedBy,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+  batch.set(
+    requestStatusRef,
+    {
+      id: pendingId,
+      status: "denied",
+      name: pendingData.name ?? null,
+      submitterEmail: pendingData.submitterEmail ?? null,
+      submitterEmailLower: pendingData.submitterEmailLower ?? null,
+      submitterPhone: pendingData.submitterPhone ?? null,
+      reviewNotes,
+      reviewedBy,
+      reviewedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+  await batch.commit();
+
+  if (!pendingSnap.exists()) {
+    console.warn(
+      `[firebase] denyPending: pending/${pendingId} was already processed or removed`,
+    );
+  }
+
+  return {
+    alreadyProcessed: !pendingSnap.exists(),
+  };
+}
