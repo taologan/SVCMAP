@@ -56,6 +56,7 @@ function App() {
         setIsAddModalOpen(false);
         setIsSubmissionSuccessOpen(false);
         setIsStatusLookupOpen(false);
+        setIsAdminPanelOpen(false);
         cancelCoordinatePick();
       }
     };

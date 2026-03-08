@@ -302,7 +302,18 @@ export function useLeafletMap({
     }
 
     if (showMarkers || shouldShowSelectedMarkersWhenZoomedOut) {
+      const inactiveMarkers = [];
+      const activeMarkers = [];
       markersToRender.forEach((pointEntity) => {
+        if (activeEntity?.id === pointEntity.entity.id) {
+          activeMarkers.push(pointEntity);
+        } else {
+          inactiveMarkers.push(pointEntity);
+        }
+      });
+      const markerRenderOrder = [...inactiveMarkers, ...activeMarkers];
+
+      markerRenderOrder.forEach((pointEntity) => {
         const { entity, coordinate, pointIndex } = pointEntity;
         const isActive = activeEntity?.id === entity.id;
         const marker = L.circleMarker(coordinate, {
