@@ -1,33 +1,10 @@
 import { useEffect, useState } from "react";
 import { EMPTY_FORM } from "../constants";
-
-const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "bmp",
-  "svg",
-  "avif",
-  "mp3",
-]);
-
-function getFileExtension(fileName = "") {
-  const trimmed = fileName.trim();
-  if (!trimmed) return "";
-  const dotIndex = trimmed.lastIndexOf(".");
-  if (dotIndex < 0) return "";
-  return trimmed.slice(dotIndex + 1).toLowerCase();
-}
-
-function isSupportedUploadFile(file) {
-  if (!file) return false;
-  const fileType = (file.type ?? "").toLowerCase();
-  if (fileType.startsWith("image/")) return true;
-  if (fileType === "audio/mpeg") return true;
-  return SUPPORTED_UPLOAD_EXTENSIONS.has(getFileExtension(file.name));
-}
+import {
+  SUPPORTED_UPLOAD_ACCEPT,
+  isSupportedUploadFile,
+  getUnsupportedUploadMessage,
+} from "../utils/upload-files";
 
 function AddWaypointModal({
   isOpen,
@@ -60,20 +37,31 @@ function AddWaypointModal({
 
   const handleFileChange = (event) => {
     const fileList = event.target.files ? Array.from(event.target.files) : [];
-    setForm((current) => ({ ...current, files: fileList }));
-    if (!fileList.length) {
-      setFormError("");
+    if (!fileList.length) return;
+
+    const supportedFiles = fileList.filter((file) => isSupportedUploadFile(file));
+
+    setForm((current) => ({
+      ...current,
+      files: [...current.files, ...supportedFiles],
+    }));
+
+    const unsupportedMessage = getUnsupportedUploadMessage(fileList);
+    if (unsupportedMessage) {
+      setFormError(unsupportedMessage);
+      event.target.value = "";
       return;
     }
 
-    const unsupportedFiles = fileList.filter((file) => !isSupportedUploadFile(file));
-    if (unsupportedFiles.length) {
-      const names = unsupportedFiles.map((file) => file.name).join(", ");
-      setFormError(
-        `Unsupported file type: ${names}. Please upload images or MP3 files only.`,
-      );
-      return;
-    }
+    setFormError("");
+    event.target.value = "";
+  };
+
+  const handleRemoveFile = (fileIndex) => {
+    setForm((current) => ({
+      ...current,
+      files: current.files.filter((_, index) => index !== fileIndex),
+    }));
     setFormError("");
   };
 
@@ -138,20 +126,17 @@ function AddWaypointModal({
     const contactEmail = form.contactEmail.trim();
     const contactPhone = form.contactPhone.trim();
 
-    if (!name || !story) {
-      setFormError("Name and story are required.");
+    if (!name || !role || !story) {
+      setFormError("Name, role, and story are required.");
       return;
     }
     if (!contactEmail) {
       setFormError("Please provide an email address.");
       return;
     }
-    const unsupportedFiles = form.files.filter((file) => !isSupportedUploadFile(file));
-    if (unsupportedFiles.length) {
-      const names = unsupportedFiles.map((file) => file.name).join(", ");
-      setFormError(
-        `Unsupported file type: ${names}. Please upload images or MP3 files only.`,
-      );
+    const unsupportedMessage = getUnsupportedUploadMessage(form.files);
+    if (unsupportedMessage) {
+      setFormError(unsupportedMessage);
       return;
     }
     if (!form.coordinates.length) {
@@ -214,6 +199,7 @@ function AddWaypointModal({
               value={form.role}
               onChange={handleFieldChange}
               placeholder="Civil rights leader, educator, family role, etc."
+              required
             />
           </label>
           <label>
@@ -320,15 +306,30 @@ function AddWaypointModal({
             Upload files
             <input
               type="file"
-              accept="image/*,audio/mpeg,.mp3"
+              accept={SUPPORTED_UPLOAD_ACCEPT}
               multiple
               onChange={handleFileChange}
             />
           </label>
+          <p className="form-note">
+            You can add multiple images or MP3 files to a single request.
+          </p>
           {form.files.length ? (
-            <ul className="selected-files">
-              {form.files.map((file) => (
-                <li key={`${file.name}-${file.size}`}>{file.name}</li>
+            <ul className="selected-upload-list">
+              {form.files.map((file, index) => (
+                <li
+                  key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                  className="selected-upload-item"
+                >
+                  <span>{file.name}</span>
+                  <button
+                    type="button"
+                    className="remove-upload-btn"
+                    onClick={() => handleRemoveFile(index)}
+                  >
+                    Remove
+                  </button>
+                </li>
               ))}
             </ul>
           ) : null}

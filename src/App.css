@@ -714,6 +714,37 @@
     font-size: 0.85rem;
 }
 
+.selected-upload-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.selected-upload-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid #e4d4bb;
+    border-radius: 0.45rem;
+    background: #fffdf8;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.86rem;
+    color: #4e4e4e;
+}
+
+.remove-upload-btn {
+    border: 1px solid #cdbb9f;
+    border-radius: 0.4rem;
+    background: #fff;
+    color: #333;
+    padding: 0.2rem 0.45rem;
+    cursor: pointer;
+}
+
 .form-error {
     margin: 0;
     color: #b42318;

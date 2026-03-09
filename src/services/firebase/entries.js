@@ -14,6 +14,7 @@ import {
   sanitizeEntryPayload,
   toFirestoreCoordinates,
 } from "./normalizers";
+import { resolveUploadedFiles } from "./uploads";
 
 export async function getEntities() {
   const entriesSnap = await getDocs(collection(db, "entries"));
@@ -31,19 +32,24 @@ export async function updateEntry({
   summary,
   role,
   coordinates,
-  uploadedFiles,
+  uploadedFiles = [],
 }) {
   const entryRef = doc(db, "entries", entryId);
   const entrySnap = await getDoc(entryRef);
   if (!entrySnap.exists()) {
     throw new Error("Entry not found.");
   }
+  const uploadedFileUrls = await resolveUploadedFiles({
+    folder: "entries",
+    recordId: entryId,
+    uploadedFiles,
+  });
   const sanitized = sanitizeEntryPayload({
     name,
     summary,
     role,
     coordinates,
-    uploadedFiles,
+    uploadedFiles: uploadedFileUrls,
   });
 
   await updateDoc(entryRef, {

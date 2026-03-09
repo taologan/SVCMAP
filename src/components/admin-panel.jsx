@@ -8,6 +8,11 @@ import {
   updateEntry,
   updatePending,
 } from "../firebase";
+import {
+  SUPPORTED_UPLOAD_ACCEPT,
+  isSupportedUploadFile,
+  getUnsupportedUploadMessage,
+} from "../utils/upload-files";
 
 function coordinatesToText(coordinates = []) {
   return coordinates.map(([lat, lng]) => `${lat}, ${lng}`).join("\n");
@@ -95,6 +100,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   const [pendingDraft, setPendingDraft] = useState(null);
   const [entryDraft, setEntryDraft] = useState(null);
   const [entrySearchQuery, setEntrySearchQuery] = useState("");
+  const [entryNewFiles, setEntryNewFiles] = useState([]);
 
   const [isSavingPending, setIsSavingPending] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -177,10 +183,12 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   useEffect(() => {
     if (!selectedEntry) {
       setEntryDraft(null);
+      setEntryNewFiles([]);
       return;
     }
 
     setEntryDraft(makeEntryDraft(selectedEntry));
+    setEntryNewFiles([]);
   }, [selectedEntry]);
 
   if (!isOpen) return null;
@@ -196,10 +204,11 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   const buildPendingPayloadFromDraft = (draft) => {
     if (!draft) return { error: "No record selected.", payload: null };
     const name = draft.name.trim();
+    const role = draft.role.trim();
     const summary = draft.summary.trim();
-    if (!name || !summary) {
+    if (!name || !role || !summary) {
       return {
-        error: "Name and summary are required.",
+        error: "Name, role, and summary are required.",
         payload: null,
       };
     }
@@ -214,20 +223,29 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       payload: {
         name,
         summary,
-        role: draft.role.trim(),
+        role,
         coordinates: parsedCoordinates.value,
         uploadedFiles: parseFiles(draft.uploadedFilesText),
       },
     };
   };
 
-  const buildEntryPayloadFromDraft = (draft) => {
+  const buildEntryPayloadFromDraft = (draft, newFiles = []) => {
     if (!draft) return { error: "No record selected.", payload: null };
     const name = draft.name.trim();
+    const role = draft.role.trim();
     const summary = draft.summary.trim();
-    if (!name || !summary) {
+    if (!name || !role || !summary) {
       return {
-        error: "Name and summary are required.",
+        error: "Name, role, and summary are required.",
+        payload: null,
+      };
+    }
+
+    const unsupportedMessage = getUnsupportedUploadMessage(newFiles);
+    if (unsupportedMessage) {
+      return {
+        error: unsupportedMessage,
         payload: null,
       };
     }
@@ -242,11 +260,35 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       payload: {
         name,
         summary,
-        role: draft.role.trim(),
+        role,
         coordinates: parsedCoordinates.value,
-        uploadedFiles: parseFiles(draft.uploadedFilesText),
+        uploadedFiles: [...parseFiles(draft.uploadedFilesText), ...newFiles],
       },
     };
+  };
+
+  const handleEntryFileChange = (event) => {
+    const fileList = event.target.files ? Array.from(event.target.files) : [];
+    if (!fileList.length) return;
+
+    const supportedFiles = fileList.filter((file) => isSupportedUploadFile(file));
+    setEntryNewFiles((current) => [...current, ...supportedFiles]);
+
+    const unsupportedMessage = getUnsupportedUploadMessage(fileList);
+    if (unsupportedMessage) {
+      setError(unsupportedMessage);
+      setSuccessMessage("");
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+    event.target.value = "";
+  };
+
+  const handleRemoveEntryFile = (fileIndex) => {
+    setEntryNewFiles((current) => current.filter((_, index) => index !== fileIndex));
+    setError("");
   };
 
   const handleSavePending = async () => {
@@ -351,7 +393,10 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   };
 
   const handleSaveEntry = async () => {
-    const { error: payloadError, payload } = buildEntryPayloadFromDraft(entryDraft);
+    const { error: payloadError, payload } = buildEntryPayloadFromDraft(
+      entryDraft,
+      entryNewFiles,
+    );
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -370,6 +415,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       setEntries((current) =>
         current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
       );
+      setEntryNewFiles([]);
       setSuccessMessage("Entry updated.");
       onEntriesChanged?.();
     } catch (saveError) {
@@ -629,6 +675,37 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
                       }
                     />
                   </label>
+                  <label>
+                    Upload new files
+                    <input
+                      type="file"
+                      accept={SUPPORTED_UPLOAD_ACCEPT}
+                      multiple
+                      onChange={handleEntryFileChange}
+                    />
+                  </label>
+                  <p className="form-note">
+                    Add one or more new images or MP3 files to append to this entry.
+                  </p>
+                  {entryNewFiles.length ? (
+                    <ul className="selected-upload-list">
+                      {entryNewFiles.map((file, index) => (
+                        <li
+                          key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                          className="selected-upload-item"
+                        >
+                          <span>{file.name}</span>
+                          <button
+                            type="button"
+                            className="remove-upload-btn"
+                            onClick={() => handleRemoveEntryFile(index)}
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   <div className="admin-actions">
                     <button
                       type="button"

@@ -28,6 +28,11 @@ function DetailsDrawer({ activeEntity, onClose }) {
     ["mp3", "m4a", "wav", "ogg", "aac", "flac"].includes(
       getLowercaseExtension(value),
     );
+  const getFilePriority = (value) => {
+    if (isImageFile(value)) return 0;
+    if (isAudioFile(value)) return 1;
+    return 2;
+  };
 
   return (
     <aside className={activeEntity ? "details-drawer" : "details-drawer empty"}>
@@ -53,19 +58,21 @@ function DetailsDrawer({ activeEntity, onClose }) {
               <div className="file-list">
                 <strong>Files:</strong>
                 <ul>
-                  {activeEntity.uploadedFiles.map((fileRef) => {
+                  {[...activeEntity.uploadedFiles]
+                    .sort((left, right) => getFilePriority(left) - getFilePriority(right))
+                    .map((fileRef) => {
                     if (!isLink(fileRef)) {
                       return <li key={fileRef}>{fileRef}</li>;
                     }
 
-                    if (isImageLink(fileRef)) {
+                    if (isImageFile(fileRef)) {
                       return (
-                        <li key={fileRef} className="file-item image">
+                        <li key={fileRef} className="file-preview-item">
                           <a href={fileRef} target="_blank" rel="noreferrer">
                             <img
                               src={fileRef}
-                              alt="Uploaded waypoint"
-                              className="file-image-preview"
+                              alt={`${activeEntity.name} attachment`}
+                              className="drawer-image-preview"
                               loading="lazy"
                             />
                           </a>
@@ -76,30 +83,14 @@ function DetailsDrawer({ activeEntity, onClose }) {
                       );
                     }
 
-                    if (isImageFile(fileName)) {
+                    if (isAudioFile(fileRef)) {
                       return (
-                        <li key={fileName} className="file-preview-item">
-                          <img
-                            src={fileName}
-                            alt={`${activeEntity.name} attachment`}
-                            className="drawer-image-preview"
-                            loading="lazy"
-                          />
-                          <a href={fileName} target="_blank" rel="noreferrer">
-                            Open image
-                          </a>
-                        </li>
-                      );
-                    }
-
-                    if (isAudioFile(fileName)) {
-                      return (
-                        <li key={fileName} className="file-preview-item">
+                        <li key={fileRef} className="file-preview-item">
                           <audio controls preload="none" className="drawer-audio-preview">
-                            <source src={fileName} />
+                            <source src={fileRef} />
                             Your browser does not support audio playback.
                           </audio>
-                          <a href={fileName} target="_blank" rel="noreferrer">
+                          <a href={fileRef} target="_blank" rel="noreferrer">
                             Open audio file
                           </a>
                         </li>
@@ -113,7 +104,7 @@ function DetailsDrawer({ activeEntity, onClose }) {
                         </a>
                       </li>
                     );
-                  })}
+                    })}
                 </ul>
               </div>
             ) : null}

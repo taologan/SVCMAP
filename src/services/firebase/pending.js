@@ -8,12 +8,7 @@ import {
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
-import {
-  getDownloadURL,
-  ref as storageRef,
-  uploadBytes,
-} from "firebase/storage";
-import { db, storage } from "./client";
+import { db } from "./client";
 import {
   normalizeEntityDoc,
   sanitizeContactPayload,
@@ -21,50 +16,7 @@ import {
   sanitizePendingPayload,
   toFirestoreCoordinates,
 } from "./normalizers";
-
-function isBrowserFile(value) {
-  return typeof File !== "undefined" && value instanceof File;
-}
-
-function sanitizeFileName(fileName) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
-async function resolveUploadedFilesForPending(pendingId, uploadedFiles) {
-  if (!Array.isArray(uploadedFiles)) return [];
-
-  const existingUrls = [];
-  const filesToUpload = [];
-
-  uploadedFiles.forEach((file) => {
-    if (typeof file === "string") {
-      const url = file.trim();
-      if (url) existingUrls.push(url);
-      return;
-    }
-
-    if (isBrowserFile(file)) {
-      filesToUpload.push(file);
-    }
-  });
-
-  if (!filesToUpload.length) {
-    return existingUrls;
-  }
-
-  const timestamp = Date.now();
-  const uploadedUrls = await Promise.all(
-    filesToUpload.map(async (file, index) => {
-      const normalizedName = sanitizeFileName(file.name || `upload-${index}`);
-      const objectPath = `pending/${pendingId}/${timestamp}-${index}-${normalizedName}`;
-      const objectRef = storageRef(storage, objectPath);
-      await uploadBytes(objectRef, file);
-      return getDownloadURL(objectRef);
-    }),
-  );
-
-  return [...existingUrls, ...uploadedUrls];
-}
+import { resolveUploadedFiles } from "./uploads";
 
 export async function getPending() {
   const pendingRef = collection(db, "pending");
@@ -91,10 +43,11 @@ export async function addPending({
   const pendingCollection = collection(db, "pending");
   const pendingRef = doc(pendingCollection);
   const requestStatusRef = doc(db, "requestStatuses", pendingRef.id);
-  const uploadedFileUrls = await resolveUploadedFilesForPending(
-    pendingRef.id,
+  const uploadedFileUrls = await resolveUploadedFiles({
+    folder: "pending",
+    recordId: pendingRef.id,
     uploadedFiles,
-  );
+  });
   const sanitized = sanitizePendingPayload({
     name,
     summary,
