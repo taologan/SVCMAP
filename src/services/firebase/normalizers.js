@@ -40,10 +40,9 @@ export function normalizeEntityDoc(entityDoc) {
 
   return {
     id: data.id ?? entityDoc.id,
-    type: data.type ?? "person",
     name: data.name ?? "Unknown",
     summary: data.summary ?? "",
-    dates: data.dates ?? "",
+    role: data.role ?? data.dates ?? "",
     coordinates,
     uploadedFiles: normalizeUploadedFiles(data.uploadedFiles),
   };
@@ -53,10 +52,9 @@ export function normalizeAdminEntityDoc(entityDoc) {
   const data = entityDoc.data();
   return {
     id: data.id ?? entityDoc.id,
-    type: data.type ?? "person",
     name: data.name ?? "Unknown",
     summary: data.summary ?? "",
-    dates: data.dates ?? "",
+    role: data.role ?? data.dates ?? "",
     coordinates: normalizeCoordinates(data.coordinates),
     uploadedFiles: normalizeUploadedFiles(data.uploadedFiles),
   };
@@ -66,15 +64,23 @@ export function toFirestoreCoordinates(coordinates) {
   return coordinates.map(([lat, lng]) => new GeoPoint(lat, lng));
 }
 
-export function sanitizeEntityPayload(payload) {
+export function sanitizePendingPayload(payload) {
   return {
-    type: payload.type ?? "submission",
     name: payload.name ?? "Unknown",
     summary: payload.summary ?? "",
-    dates: payload.dates ?? "Community submission",
+    role: payload.role ?? payload.dates ?? "",
     coordinates: normalizeCoordinates(payload.coordinates),
     uploadedFiles: normalizeUploadedFiles(payload.uploadedFiles),
-    source: payload.source ?? "user",
+  };
+}
+
+export function sanitizeEntryPayload(payload) {
+  return {
+    name: payload.name ?? "Unknown",
+    summary: payload.summary ?? "",
+    role: payload.role ?? payload.dates ?? "",
+    coordinates: normalizeCoordinates(payload.coordinates),
+    uploadedFiles: normalizeUploadedFiles(payload.uploadedFiles),
   };
 }
 

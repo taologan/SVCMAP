@@ -1,7 +1,7 @@
-export { auth, db, storage } from "./services/firebase/client";
 export {
   isUserAdmin,
   onAuthUserChanged,
+  signOutCurrentUser,
   signInWithGoogle,
 } from "./services/firebase/auth";
 export {

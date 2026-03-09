@@ -133,6 +133,7 @@ function AddWaypointModal({
   const handleSubmit = async (event) => {
     event.preventDefault();
     const name = form.name.trim();
+    const role = form.role.trim();
     const story = form.story.trim();
     const contactEmail = form.contactEmail.trim();
     const contactPhone = form.contactPhone.trim();
@@ -163,6 +164,7 @@ function AddWaypointModal({
     try {
       const submissionReceipt = await onSubmitWaypoint({
         name,
+        role,
         story,
         coordinates: form.coordinates,
         contactEmail,
@@ -202,6 +204,16 @@ function AddWaypointModal({
               onChange={handleFieldChange}
               placeholder="Person or place name"
               required
+            />
+          </label>
+          <label>
+            Role
+            <input
+              name="role"
+              type="text"
+              value={form.role}
+              onChange={handleFieldChange}
+              placeholder="Civil rights leader, educator, family role, etc."
             />
           </label>
           <label>
@@ -322,7 +334,7 @@ function AddWaypointModal({
           ) : null}
           {formError ? <p className="form-error">{formError}</p> : null}
           <button type="submit" className="submit-btn" disabled={isSavingWaypoint}>
-            {isSavingWaypoint ? "Saving to Firebase..." : "Save waypoint"}
+            {isSavingWaypoint ? "Saving..." : "Save waypoint"}
           </button>
         </form>
       </section>

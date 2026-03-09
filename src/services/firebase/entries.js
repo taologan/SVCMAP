@@ -11,7 +11,7 @@ import { db } from "./client";
 import {
   normalizeAdminEntityDoc,
   normalizeEntityDoc,
-  sanitizeEntityPayload,
+  sanitizeEntryPayload,
   toFirestoreCoordinates,
 } from "./normalizers";
 
@@ -27,27 +27,23 @@ export async function getAllEntriesForAdmin() {
 
 export async function updateEntry({
   entryId,
-  type,
   name,
   summary,
-  dates,
+  role,
   coordinates,
   uploadedFiles,
-  source = "admin",
 }) {
   const entryRef = doc(db, "entries", entryId);
   const entrySnap = await getDoc(entryRef);
   if (!entrySnap.exists()) {
     throw new Error("Entry not found.");
   }
-  const sanitized = sanitizeEntityPayload({
-    type,
+  const sanitized = sanitizeEntryPayload({
     name,
     summary,
-    dates,
+    role,
     coordinates,
     uploadedFiles,
-    source,
   });
 
   await updateDoc(entryRef, {

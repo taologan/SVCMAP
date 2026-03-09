@@ -21,8 +21,7 @@ function Sidebar({
 
     return visibleEntities.filter((entry) => {
       const name = (entry.entity.name ?? "").toLowerCase();
-      const type = (entry.entity.type ?? "").toLowerCase();
-      const dates = (entry.entity.dates ?? "").toLowerCase();
+      const role = (entry.entity.role ?? "").toLowerCase();
       const summary = (entry.entity.summary ?? "").toLowerCase();
 
       const matchesName =
@@ -30,8 +29,7 @@ function Sidebar({
       const matchesKeyword =
         !normalizedKeywordFilter ||
         name.includes(normalizedKeywordFilter) ||
-        type.includes(normalizedKeywordFilter) ||
-        dates.includes(normalizedKeywordFilter) ||
+        role.includes(normalizedKeywordFilter) ||
         summary.includes(normalizedKeywordFilter);
 
       return matchesName && matchesKeyword;
@@ -94,7 +92,7 @@ function Sidebar({
             value={sortMode}
             onChange={(event) => setSortMode(event.target.value)}
           >
-            <option value="map">Map order</option>
+            <option value="map">None</option>
             <option value="name">Name (A-Z)</option>
           </select>
         </div>
@@ -119,7 +117,7 @@ function Sidebar({
             type="text"
             value={keywordFilter}
             onChange={(event) => setKeywordFilter(event.target.value)}
-            placeholder="Filter by story, type, or date"
+            placeholder="Filter by story or role"
           />
         </div>
         {entitiesStatus === "loading" ? (
@@ -165,14 +163,15 @@ function Sidebar({
                     onFocusEntity(entry.entity, entry.visiblePoints);
                   }}
                 >
-                  <span className="stack-type">{entry.entity.type}</span>
                   <strong>{entry.entity.name}</strong>
-                  <span>
-                    {entry.entity.dates}
-                    {entry.visiblePointCount > 1
-                      ? ` • ${entry.visiblePointCount} points in view`
-                      : ""}
-                  </span>
+                  {entry.entity.role || entry.visiblePointCount > 1 ? (
+                    <span>
+                      {entry.entity.role}
+                      {entry.visiblePointCount > 1
+                        ? `${entry.entity.role ? " • " : ""}${entry.visiblePointCount} points in view`
+                        : ""}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             ))}

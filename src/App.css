@@ -56,6 +56,12 @@
     gap: 0.55rem;
 }
 
+.admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
 .add-waypoint-btn {
     border: 1px solid #b36624;
     background: linear-gradient(180deg, #f6ad64, #f19b4a);
@@ -76,6 +82,16 @@
     cursor: pointer;
 }
 
+.sign-out-btn {
+    border: 1px solid #8e1d1d;
+    background: linear-gradient(180deg, #f38f8f, #de5b5b);
+    color: #2d0f0f;
+    border-radius: 0.62rem;
+    padding: 0.58rem 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .add-waypoint-btn:hover {
     filter: brightness(0.97);
 }
@@ -87,6 +103,10 @@
 
 .admin-login-btn:hover {
     filter: brightness(0.98);
+}
+
+.sign-out-btn:hover {
+    filter: brightness(0.97);
 }
 
 .map-shell {
@@ -263,13 +283,6 @@
     background: #f7d9b1;
     border-color: #9f5317;
     box-shadow: 0 0 0 2px rgba(159, 83, 23, 0.2);
-}
-
-.stack-type {
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-size: 0.67rem;
-    color: #875724;
 }
 
 .visible-stack strong {
@@ -578,19 +591,25 @@
     padding-left: 1rem;
 }
 
-.file-preview-item {
+.file-preview-item,
+.file-item.image {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    list-style: none;
+    margin-left: -1rem;
 }
 
-.drawer-image-preview {
+.drawer-image-preview,
+.file-image-preview {
+    display: block;
     width: min(320px, 100%);
-    max-height: 220px;
-    object-fit: cover;
+    max-height: 320px;
+    object-fit: contain;
     border: 1px solid #dcc8a8;
     border-radius: 0.45rem;
     background: #fff;
+    margin-bottom: 0.35rem;
 }
 
 .drawer-audio-preview {

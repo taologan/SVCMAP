@@ -1,6 +1,7 @@
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
+  signOut,
   signInWithPopup,
 } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, limit, query, where } from "firebase/firestore";
@@ -16,6 +17,10 @@ export async function signInWithGoogle() {
 
 export function onAuthUserChanged(callback) {
   return onAuthStateChanged(auth, callback);
+}
+
+export function signOutCurrentUser() {
+  return signOut(auth);
 }
 
 export async function isUserAdmin(user) {
