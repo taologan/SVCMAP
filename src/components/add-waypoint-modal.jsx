@@ -1,6 +1,34 @@
 import { useEffect, useState } from "react";
 import { EMPTY_FORM } from "../constants";
 
+const SUPPORTED_UPLOAD_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "svg",
+  "avif",
+  "mp3",
+]);
+
+function getFileExtension(fileName = "") {
+  const trimmed = fileName.trim();
+  if (!trimmed) return "";
+  const dotIndex = trimmed.lastIndexOf(".");
+  if (dotIndex < 0) return "";
+  return trimmed.slice(dotIndex + 1).toLowerCase();
+}
+
+function isSupportedUploadFile(file) {
+  if (!file) return false;
+  const fileType = (file.type ?? "").toLowerCase();
+  if (fileType.startsWith("image/")) return true;
+  if (fileType === "audio/mpeg") return true;
+  return SUPPORTED_UPLOAD_EXTENSIONS.has(getFileExtension(file.name));
+}
+
 function AddWaypointModal({
   isOpen,
   onClose,
@@ -33,6 +61,20 @@ function AddWaypointModal({
   const handleFileChange = (event) => {
     const fileList = event.target.files ? Array.from(event.target.files) : [];
     setForm((current) => ({ ...current, files: fileList }));
+    if (!fileList.length) {
+      setFormError("");
+      return;
+    }
+
+    const unsupportedFiles = fileList.filter((file) => !isSupportedUploadFile(file));
+    if (unsupportedFiles.length) {
+      const names = unsupportedFiles.map((file) => file.name).join(", ");
+      setFormError(
+        `Unsupported file type: ${names}. Please upload images or MP3 files only.`,
+      );
+      return;
+    }
+    setFormError("");
   };
 
   const handlePickCoordinates = async () => {
@@ -47,27 +89,17 @@ function AddWaypointModal({
       ...current,
       latitude: picked.latitude,
       longitude: picked.longitude,
+      coordinates: [
+        ...current.coordinates,
+        [Number(picked.latitude), Number(picked.longitude)],
+      ],
     }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleAddManualCoordinate = () => {
     const latitude = Number(form.latitude);
     const longitude = Number(form.longitude);
-    const name = form.name.trim();
-    const role = form.role.trim();
-    const story = form.story.trim();
-    const contactEmail = form.contactEmail.trim();
-    const contactPhone = form.contactPhone.trim();
 
-    if (!name || !story) {
-      setFormError("Name and story are required.");
-      return;
-    }
-    if (!contactEmail) {
-      setFormError("Please provide an email address.");
-      return;
-    }
     if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
       setFormError("Latitude and longitude must be valid numbers.");
       return;
@@ -83,14 +115,58 @@ function AddWaypointModal({
     }
 
     setFormError("");
+    setForm((current) => ({
+      ...current,
+      latitude: "",
+      longitude: "",
+      coordinates: [...current.coordinates, [latitude, longitude]],
+    }));
+  };
+
+  const handleRemoveCoordinate = (coordinateIndex) => {
+    setForm((current) => ({
+      ...current,
+      coordinates: current.coordinates.filter((_, index) => index !== coordinateIndex),
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const name = form.name.trim();
+    const role = form.role.trim();
+    const story = form.story.trim();
+    const contactEmail = form.contactEmail.trim();
+    const contactPhone = form.contactPhone.trim();
+
+    if (!name || !story) {
+      setFormError("Name and story are required.");
+      return;
+    }
+    if (!contactEmail) {
+      setFormError("Please provide an email address.");
+      return;
+    }
+    const unsupportedFiles = form.files.filter((file) => !isSupportedUploadFile(file));
+    if (unsupportedFiles.length) {
+      const names = unsupportedFiles.map((file) => file.name).join(", ");
+      setFormError(
+        `Unsupported file type: ${names}. Please upload images or MP3 files only.`,
+      );
+      return;
+    }
+    if (!form.coordinates.length) {
+      setFormError("Add at least one coordinate for this request.");
+      return;
+    }
+
+    setFormError("");
     setIsSavingWaypoint(true);
     try {
       const submissionReceipt = await onSubmitWaypoint({
         name,
         role,
         story,
-        latitude,
-        longitude,
+        coordinates: form.coordinates,
         contactEmail,
         contactPhone,
         files: form.files,
@@ -161,7 +237,6 @@ function AddWaypointModal({
                 value={form.latitude}
                 onChange={handleFieldChange}
                 placeholder="33.7490"
-                required
               />
             </label>
             <label>
@@ -173,10 +248,50 @@ function AddWaypointModal({
                 value={form.longitude}
                 onChange={handleFieldChange}
                 placeholder="-84.3880"
-                required
               />
             </label>
           </div>
+          <div className="coord-actions">
+            <button
+              type="button"
+              className="pick-coord-btn manual"
+              onClick={handleAddManualCoordinate}
+            >
+              Add manual coordinate
+            </button>
+            <button
+              type="button"
+              className="pick-coord-btn"
+              onClick={handlePickCoordinates}
+              disabled={isPickingCoordinates}
+            >
+              {isPickingCoordinates
+                ? "Click on the map to add a coordinate..."
+                : "Select coordinates on map"}
+            </button>
+          </div>
+          {form.coordinates.length ? (
+            <ul className="selected-coordinates">
+              {form.coordinates.map(([lat, lng], index) => (
+                <li key={`${lat}-${lng}-${index}`}>
+                  <span>
+                    {lat.toFixed(6)}, {lng.toFixed(6)}
+                  </span>
+                  <button
+                    type="button"
+                    className="remove-coordinate-btn"
+                    onClick={() => handleRemoveCoordinate(index)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="form-note">
+              Add one or more coordinates. You can mix manual input and map picks.
+            </p>
+          )}
           <label>
             Contact email
             <input
@@ -201,19 +316,14 @@ function AddWaypointModal({
           <p className="form-note">
             Email is required for status lookup. Phone number is optional.
           </p>
-          <button
-            type="button"
-            className="pick-coord-btn"
-            onClick={handlePickCoordinates}
-            disabled={isPickingCoordinates}
-          >
-            {isPickingCoordinates
-              ? "Click on the map to set coordinates..."
-              : "Select coordinates on map"}
-          </button>
           <label>
             Upload files
-            <input type="file" accept="image/*" multiple onChange={handleFileChange} />
+            <input
+              type="file"
+              accept="image/*,audio/mpeg,.mp3"
+              multiple
+              onChange={handleFileChange}
+            />
           </label>
           {form.files.length ? (
             <ul className="selected-files">

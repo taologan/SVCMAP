@@ -94,6 +94,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   const [selectedEntryId, setSelectedEntryId] = useState(null);
   const [pendingDraft, setPendingDraft] = useState(null);
   const [entryDraft, setEntryDraft] = useState(null);
+  const [entrySearchQuery, setEntrySearchQuery] = useState("");
 
   const [isSavingPending, setIsSavingPending] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -111,6 +112,14 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     () => entries.find((item) => item.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   );
+  const filteredEntries = useMemo(() => {
+    const normalizedQuery = entrySearchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return entries;
+
+    return entries.filter((item) =>
+      (item.name ?? "").toLowerCase().includes(normalizedQuery),
+    );
+  }, [entries, entrySearchQuery]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -139,6 +148,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
 
         setSelectedEntryId(firstEntryId);
         setEntryDraft(firstEntryId ? makeEntryDraft(publishedEntries[0]) : null);
+        setEntrySearchQuery("");
       } catch (loadError) {
         if (!isMounted) return;
         console.error("Failed to load admin data:", loadError);
@@ -543,8 +553,22 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
           ) : (
             <div className="admin-grid">
               <div className="admin-list" role="listbox" aria-label="Published entries">
+                <label className="admin-search-label" htmlFor="admin-entry-search">
+                  Search names
+                </label>
+                <input
+                  id="admin-entry-search"
+                  className="admin-search-input"
+                  type="text"
+                  value={entrySearchQuery}
+                  onChange={(event) => setEntrySearchQuery(event.target.value)}
+                  placeholder="Search by name"
+                />
                 {entries.length === 0 ? <p>No entries available.</p> : null}
-                {entries.map((item) => (
+                {entries.length > 0 && filteredEntries.length === 0 ? (
+                  <p>No entries match that search.</p>
+                ) : null}
+                {filteredEntries.map((item) => (
                   <button
                     key={item.id}
                     type="button"

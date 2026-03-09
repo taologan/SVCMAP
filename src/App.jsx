@@ -9,10 +9,13 @@ import SubmissionSuccessModal from "./components/submission-success-modal";
 import DetailsDrawer from "./components/details-drawer";
 import TopBar from "./components/top-bar";
 import CoordinatePickerBanner from "./components/coordinate-picker-banner";
+import UserTutorial from "./components/user-tutorial";
 import { useAuth } from "./hooks/use-auth";
 import { useLeafletMap } from "./hooks/use-leaflet-map";
 import { useMapEntities } from "./hooks/use-map-entities";
 import { addPending, lookupRequestStatus } from "./firebase";
+
+const USER_TUTORIAL_STORAGE_KEY = "svcmap-user-tutorial-complete";
 
 function App() {
   const mapContainerRef = useRef(null);
@@ -24,6 +27,7 @@ function App() {
   const [submissionReceipt, setSubmissionReceipt] = useState(null);
   const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
   const [isStatusLookupOpen, setIsStatusLookupOpen] = useState(false);
+  const [isUserTutorialOpen, setIsUserTutorialOpen] = useState(false);
   const [overlayTop, setOverlayTop] = useState(128);
 
   const { isSigningIn, isSigningOut, authUser, isAdmin, isCheckingAdmin, signIn, signOut } =
@@ -76,6 +80,14 @@ function App() {
   }, [activeEntity, entities]);
 
   useEffect(() => {
+    const hasSeenTutorial =
+      window.localStorage.getItem(USER_TUTORIAL_STORAGE_KEY) === "true";
+    if (!hasSeenTutorial) {
+      setIsUserTutorialOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const topBar = topBarRef.current;
     if (!topBar) return;
 
@@ -116,8 +128,7 @@ function App() {
     name,
     role,
     story,
-    latitude,
-    longitude,
+    coordinates,
     contactEmail,
     contactPhone,
     files = [],
@@ -127,7 +138,7 @@ function App() {
         name,
         role,
         summary: story,
-        coordinates: [[latitude, longitude]],
+        coordinates,
         uploadedFiles: files,
         submitterEmail: contactEmail,
         submitterPhone: contactPhone,
@@ -156,6 +167,38 @@ function App() {
       submitterPhone: contactPhone,
     });
   };
+
+  const closeUserTutorial = () => {
+    setIsUserTutorialOpen(false);
+    window.localStorage.setItem(USER_TUTORIAL_STORAGE_KEY, "true");
+  };
+
+  const userTutorialSteps = [
+    {
+      selector: ".add-waypoint-btn:not(.secondary)",
+      title: "Add Connection",
+      description:
+        "Use this button to submit a new waypoint request. You can share a name, story, coordinates, and contact details.",
+    },
+    {
+      selector: ".add-waypoint-btn.secondary",
+      title: "Check Request Status",
+      description:
+        "After submitting, use this button to look up your request by email or phone and see if it is pending, approved, or denied.",
+    },
+    {
+      selector: ".visible-sidebar",
+      title: "Visible List",
+      description:
+        "This panel shows people and sites currently on-screen. Use filters and sort controls to quickly find a record.",
+    },
+    {
+      selector: ".map",
+      title: "Map Interactions",
+      description:
+        "Pan and zoom the map to explore more markers. Click a marker or list item to open details in the right-side drawer.",
+    },
+  ];
 
   return (
     <main className="app">
@@ -216,6 +259,11 @@ function App() {
         userEmail={authUser?.email}
         onClose={() => setIsAdminPanelOpen(false)}
         onEntriesChanged={reloadEntities}
+      />
+      <UserTutorial
+        isOpen={isUserTutorialOpen}
+        steps={userTutorialSteps}
+        onClose={closeUserTutorial}
       />
     </main>
   );
