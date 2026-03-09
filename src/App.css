@@ -56,6 +56,12 @@
     gap: 0.55rem;
 }
 
+.admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
 .add-waypoint-btn {
     border: 1px solid #b36624;
     background: linear-gradient(180deg, #f6ad64, #f19b4a);
@@ -76,6 +82,16 @@
     cursor: pointer;
 }
 
+.sign-out-btn {
+    border: 1px solid #8e1d1d;
+    background: linear-gradient(180deg, #f38f8f, #de5b5b);
+    color: #2d0f0f;
+    border-radius: 0.62rem;
+    padding: 0.58rem 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .add-waypoint-btn:hover {
     filter: brightness(0.97);
 }
@@ -87,6 +103,10 @@
 
 .admin-login-btn:hover {
     filter: brightness(0.98);
+}
+
+.sign-out-btn:hover {
+    filter: brightness(0.97);
 }
 
 .map-shell {
@@ -263,13 +283,6 @@
     background: #f7d9b1;
     border-color: #9f5317;
     box-shadow: 0 0 0 2px rgba(159, 83, 23, 0.2);
-}
-
-.stack-type {
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-size: 0.67rem;
-    color: #875724;
 }
 
 .visible-stack strong {

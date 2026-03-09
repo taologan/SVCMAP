@@ -60,13 +60,23 @@ function parseFiles(text) {
     .filter(Boolean);
 }
 
-function makeDraft(record) {
+function makePendingDraft(record) {
   return {
     id: record.id,
-    type: record.type ?? "submission",
     name: record.name ?? "",
     summary: record.summary ?? "",
-    dates: record.dates ?? "",
+    role: record.role ?? "",
+    coordinatesText: coordinatesToText(record.coordinates),
+    uploadedFilesText: filesToText(record.uploadedFiles),
+  };
+}
+
+function makeEntryDraft(record) {
+  return {
+    id: record.id,
+    name: record.name ?? "",
+    summary: record.summary ?? "",
+    role: record.role ?? "",
     coordinatesText: coordinatesToText(record.coordinates),
     uploadedFilesText: filesToText(record.uploadedFiles),
   };
@@ -125,10 +135,10 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
         const firstEntryId = publishedEntries[0]?.id ?? null;
 
         setSelectedPendingId(firstPendingId);
-        setPendingDraft(firstPendingId ? makeDraft(pending[0]) : null);
+        setPendingDraft(firstPendingId ? makePendingDraft(pending[0]) : null);
 
         setSelectedEntryId(firstEntryId);
-        setEntryDraft(firstEntryId ? makeDraft(publishedEntries[0]) : null);
+        setEntryDraft(firstEntryId ? makeEntryDraft(publishedEntries[0]) : null);
       } catch (loadError) {
         if (!isMounted) return;
         console.error("Failed to load admin data:", loadError);
@@ -151,7 +161,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       return;
     }
 
-    setPendingDraft(makeDraft(selectedPending));
+    setPendingDraft(makePendingDraft(selectedPending));
   }, [selectedPending]);
 
   useEffect(() => {
@@ -160,7 +170,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       return;
     }
 
-    setEntryDraft(makeDraft(selectedEntry));
+    setEntryDraft(makeEntryDraft(selectedEntry));
   }, [selectedEntry]);
 
   if (!isOpen) return null;
@@ -173,7 +183,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     setEntryDraft((current) => (current ? { ...current, [key]: value } : current));
   };
 
-  const buildPayloadFromDraft = (draft) => {
+  const buildPendingPayloadFromDraft = (draft) => {
     if (!draft) return { error: "No record selected.", payload: null };
     const name = draft.name.trim();
     const summary = draft.summary.trim();
@@ -192,10 +202,37 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     return {
       error: "",
       payload: {
-        type: draft.type.trim() || "submission",
         name,
         summary,
-        dates: draft.dates.trim() || "Community submission",
+        role: draft.role.trim(),
+        coordinates: parsedCoordinates.value,
+        uploadedFiles: parseFiles(draft.uploadedFilesText),
+      },
+    };
+  };
+
+  const buildEntryPayloadFromDraft = (draft) => {
+    if (!draft) return { error: "No record selected.", payload: null };
+    const name = draft.name.trim();
+    const summary = draft.summary.trim();
+    if (!name || !summary) {
+      return {
+        error: "Name and summary are required.",
+        payload: null,
+      };
+    }
+
+    const parsedCoordinates = parseCoordinates(draft.coordinatesText);
+    if (parsedCoordinates.error) {
+      return { error: parsedCoordinates.error, payload: null };
+    }
+
+    return {
+      error: "",
+      payload: {
+        name,
+        summary,
+        role: draft.role.trim(),
         coordinates: parsedCoordinates.value,
         uploadedFiles: parseFiles(draft.uploadedFilesText),
       },
@@ -203,7 +240,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   };
 
   const handleSavePending = async () => {
-    const { error: payloadError, payload } = buildPayloadFromDraft(pendingDraft);
+    const { error: payloadError, payload } = buildPendingPayloadFromDraft(pendingDraft);
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -232,7 +269,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   };
 
   const handleApprovePending = async () => {
-    const { error: payloadError, payload } = buildPayloadFromDraft(pendingDraft);
+    const { error: payloadError, payload } = buildPendingPayloadFromDraft(pendingDraft);
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -304,7 +341,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   };
 
   const handleSaveEntry = async () => {
-    const { error: payloadError, payload } = buildPayloadFromDraft(entryDraft);
+    const { error: payloadError, payload } = buildEntryPayloadFromDraft(entryDraft);
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -318,7 +355,6 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       const updated = await updateEntry({
         entryId: entryDraft.id,
         ...payload,
-        source: "admin",
       });
 
       setEntries((current) =>
@@ -424,7 +460,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
                     onClick={() => setSelectedPendingId(item.id)}
                   >
                     <strong>{item.name}</strong>
-                    <span>{item.type}</span>
+                    {item.role ? <span>{item.role}</span> : null}
                   </button>
                 ))}
               </div>
@@ -440,19 +476,11 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
                     />
                   </label>
                   <label>
-                    Type
+                    Role
                     <input
                       type="text"
-                      value={pendingDraft.type}
-                      onChange={(event) => setPendingField("type", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Dates
-                    <input
-                      type="text"
-                      value={pendingDraft.dates}
-                      onChange={(event) => setPendingField("dates", event.target.value)}
+                      value={pendingDraft.role}
+                      onChange={(event) => setPendingField("role", event.target.value)}
                     />
                   </label>
                   <label>
@@ -528,7 +556,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
                     onClick={() => setSelectedEntryId(item.id)}
                   >
                     <strong>{item.name}</strong>
-                    <span>{item.type}</span>
+                    {item.role ? <span>{item.role}</span> : null}
                   </button>
                 ))}
               </div>
@@ -544,19 +572,11 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
                     />
                   </label>
                   <label>
-                    Type
+                    Role
                     <input
                       type="text"
-                      value={entryDraft.type}
-                      onChange={(event) => setEntryField("type", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Dates
-                    <input
-                      type="text"
-                      value={entryDraft.dates}
-                      onChange={(event) => setEntryField("dates", event.target.value)}
+                      value={entryDraft.role}
+                      onChange={(event) => setEntryField("role", event.target.value)}
                     />
                   </label>
                   <label>

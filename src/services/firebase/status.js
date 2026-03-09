@@ -9,48 +9,37 @@ export async function lookupRequestStatus({
   const emailInput = normalizeEmailLower(submitterEmail);
   const phoneInput = normalizePhone(submitterPhone);
 
-  if (!emailInput && !phoneInput) {
-    throw new Error("Email or phone is required.");
+  if (!emailInput) {
+    throw new Error("Email is required.");
   }
 
   const statusCollection = collection(db, "requestStatuses");
   const matchesById = new Map();
 
-  if (emailInput) {
-    const byEmailSnap = await getDocs(
-      query(statusCollection, where("submitterEmailLower", "==", emailInput)),
-    );
-    byEmailSnap.docs.forEach((snapshot) => {
-      const data = snapshot.data();
-      matchesById.set(snapshot.id, {
-        id: snapshot.id,
-        status: data.status ?? "pending",
-        name: data.name ?? "",
-        reviewNotes: data.reviewNotes ?? "",
-        updatedAt: data.updatedAt ?? null,
-      });
-    });
-  }
+  const byEmailSnap = await getDocs(
+    query(statusCollection, where("submitterEmailLower", "==", emailInput)),
+  );
+  byEmailSnap.docs.forEach((snapshot) => {
+    const data = snapshot.data();
+    const matchesPhone = !phoneInput || normalizePhone(data.submitterPhone) === phoneInput;
+    if (!matchesPhone) return;
 
-  if (phoneInput) {
-    const byPhoneSnap = await getDocs(
-      query(statusCollection, where("submitterPhone", "==", phoneInput)),
-    );
-    byPhoneSnap.docs.forEach((snapshot) => {
-      const data = snapshot.data();
-      matchesById.set(snapshot.id, {
-        id: snapshot.id,
-        status: data.status ?? "pending",
-        name: data.name ?? "",
-        reviewNotes: data.reviewNotes ?? "",
-        updatedAt: data.updatedAt ?? null,
-      });
+    matchesById.set(snapshot.id, {
+      id: snapshot.id,
+      status: data.status ?? "pending",
+      name: data.name ?? "",
+      reviewNotes: data.reviewNotes ?? "",
+      updatedAt: data.updatedAt ?? null,
     });
-  }
+  });
 
   const matches = [...matchesById.values()];
   if (!matches.length) {
-    throw new Error("No requests found for that contact information.");
+    throw new Error(
+      phoneInput
+        ? "No requests found for that email and phone combination."
+        : "No requests found for that email.",
+    );
   }
 
   matches.sort((a, b) => {

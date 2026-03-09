@@ -18,7 +18,7 @@ function DetailsDrawer({ activeEntity, onClose }) {
         <>
           <div className="drawer-header">
             <div>
-              <p className="eyebrow">{activeEntity.type}</p>
+              <p className="eyebrow">Waypoint</p>
               <h2>{activeEntity.name}</h2>
             </div>
             <button type="button" className="drawer-close" onClick={onClose}>
@@ -27,9 +27,11 @@ function DetailsDrawer({ activeEntity, onClose }) {
           </div>
           <div className="drawer-body">
             <p>{activeEntity.summary}</p>
-            <p>
-              <strong>Role:</strong> {activeEntity.dates}
-            </p>
+            {activeEntity.role ? (
+              <p>
+                <strong>Role:</strong> {activeEntity.role}
+              </p>
+            ) : null}
             {activeEntity.uploadedFiles?.length ? (
               <div className="file-list">
                 <strong>Files:</strong>

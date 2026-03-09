@@ -26,7 +26,8 @@ function App() {
   const [isStatusLookupOpen, setIsStatusLookupOpen] = useState(false);
   const [overlayTop, setOverlayTop] = useState(128);
 
-  const { isSigningIn, authUser, isAdmin, isCheckingAdmin, signIn } = useAuth();
+  const { isSigningIn, isSigningOut, authUser, isAdmin, isCheckingAdmin, signIn, signOut } =
+    useAuth();
   const { entities, entitiesStatus, entitiesError, reloadEntities } =
     useMapEntities();
   const {
@@ -113,6 +114,7 @@ function App() {
 
   const handleSubmitWaypoint = async ({
     name,
+    role,
     story,
     latitude,
     longitude,
@@ -122,13 +124,11 @@ function App() {
   }) => {
     try {
       const pendingRequest = await addPending({
-        type: "submission",
         name,
+        role,
         summary: story,
-        dates: "Community submission",
         coordinates: [[latitude, longitude]],
         uploadedFiles: files,
-        source: "user",
         submitterEmail: contactEmail,
         submitterPhone: contactPhone,
       });
@@ -163,10 +163,12 @@ function App() {
         <TopBar
           topBarRef={topBarRef}
           isSigningIn={isSigningIn}
+          isSigningOut={isSigningOut}
           authUser={authUser}
           isCheckingAdmin={isCheckingAdmin}
           isAdmin={isAdmin}
           onAdminLogin={handleAdminLogin}
+          onSignOut={signOut}
           onOpenAddModal={() => setIsAddModalOpen(true)}
           onOpenStatusLookupModal={() => setIsStatusLookupOpen(true)}
         />

@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { isUserAdmin, onAuthUserChanged, signInWithGoogle } from "../firebase";
+import {
+  isUserAdmin,
+  onAuthUserChanged,
+  signInWithGoogle,
+  signOutCurrentUser,
+} from "../firebase";
 
 export function useAuth() {
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
@@ -43,6 +49,26 @@ export function useAuth() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isSigningIn) return undefined;
+
+    const clearSigningIn = () => {
+      // Give Firebase a moment to deliver the auth state event before resetting UI.
+      window.setTimeout(() => setIsSigningIn(false), 500);
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      setIsSigningIn(false);
+    }, 120000);
+
+    window.addEventListener("focus", clearSigningIn);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("focus", clearSigningIn);
+    };
+  }, [isSigningIn]);
+
   const signIn = useCallback(async () => {
     setIsSigningIn(true);
     try {
@@ -54,11 +80,22 @@ export function useAuth() {
     }
   }, []);
 
+  const signOut = useCallback(async () => {
+    setIsSigningOut(true);
+    try {
+      await signOutCurrentUser();
+    } finally {
+      setIsSigningOut(false);
+    }
+  }, []);
+
   return {
     isSigningIn,
+    isSigningOut,
     authUser,
     isAdmin,
     isCheckingAdmin,
     signIn,
+    signOut,
   };
 }

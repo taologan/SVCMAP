@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -16,7 +17,8 @@ import { db, storage } from "./client";
 import {
   normalizeEntityDoc,
   sanitizeContactPayload,
-  sanitizeEntityPayload,
+  sanitizeEntryPayload,
+  sanitizePendingPayload,
   toFirestoreCoordinates,
 } from "./normalizers";
 
@@ -78,13 +80,11 @@ export async function getPending() {
 }
 
 export async function addPending({
-  type = "submission",
   name,
   summary,
-  dates = "Community submission",
+  role = "",
   coordinates,
   uploadedFiles = [],
-  source = "user",
   submitterEmail = "",
   submitterPhone = "",
 }) {
@@ -95,14 +95,12 @@ export async function addPending({
     pendingRef.id,
     uploadedFiles,
   );
-  const sanitized = sanitizeEntityPayload({
-    type,
+  const sanitized = sanitizePendingPayload({
     name,
     summary,
-    dates,
+    role,
     coordinates,
     uploadedFiles: uploadedFileUrls,
-    source,
   });
   const contact = sanitizeContactPayload({ submitterEmail, submitterPhone });
   const batch = writeBatch(db);
@@ -136,27 +134,25 @@ export async function addPending({
 
 export async function updatePending({
   pendingId,
-  type,
   name,
   summary,
-  dates,
+  role,
   coordinates,
   uploadedFiles,
-  source = "user",
 }) {
   const pendingDocRef = doc(db, "pending", pendingId);
-  const sanitized = sanitizeEntityPayload({
-    type,
+  const sanitized = sanitizePendingPayload({
     name,
     summary,
-    dates,
+    role,
     coordinates,
     uploadedFiles,
-    source,
   });
 
   await updateDoc(pendingDocRef, {
     ...sanitized,
+    type: deleteField(),
+    source: deleteField(),
     coordinates: toFirestoreCoordinates(sanitized.coordinates),
     updatedAt: serverTimestamp(),
   });
@@ -177,7 +173,7 @@ export async function approvePending({
 
   const pendingData = pendingSnap.data();
   const requestStatusRef = doc(db, "requestStatuses", pendingId);
-  const sanitized = sanitizeEntityPayload({
+  const sanitized = sanitizeEntryPayload({
     ...pendingData,
     ...updates,
   });
@@ -230,13 +226,7 @@ export async function denyPending({
   const batch = writeBatch(db);
 
   if (pendingSnap.exists()) {
-    batch.update(pendingDocRef, {
-      status: "denied",
-      reviewNotes,
-      reviewedBy,
-      reviewedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    batch.delete(pendingDocRef);
   }
   batch.set(
     requestStatusRef,

@@ -30,8 +30,8 @@ function StatusLookupModal({ isOpen, onClose, onLookup }) {
     setError("");
     setResult([]);
 
-    if (!form.contactEmail.trim() && !form.contactPhone.trim()) {
-      setError("Please provide the email or phone used on submission.");
+    if (!form.contactEmail.trim()) {
+      setError("Please provide the email used on submission.");
       return;
     }
 
@@ -65,15 +65,16 @@ function StatusLookupModal({ isOpen, onClose, onLookup }) {
         <h2>Check Request Status</h2>
         <form className="add-waypoint-form" onSubmit={handleSubmit}>
           <label>
-            Contact email (optional)
+            Contact email
             <input
               name="contactEmail"
-              type="email"
-              value={form.contactEmail}
-              onChange={handleFieldChange}
-              placeholder="you@example.org"
-            />
-          </label>
+            type="email"
+            value={form.contactEmail}
+            onChange={handleFieldChange}
+            placeholder="you@example.org"
+            required
+          />
+        </label>
           <label>
             Contact phone (optional)
             <input
@@ -85,7 +86,7 @@ function StatusLookupModal({ isOpen, onClose, onLookup }) {
             />
           </label>
           <p className="form-note">
-            Enter the same email or phone used when you submitted your request.
+            Enter the same email used when you submitted your request. Phone is optional.
           </p>
           {error ? <p className="form-error">{error}</p> : null}
           {hasAttempted && !error ? (

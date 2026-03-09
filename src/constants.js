@@ -1,5 +1,6 @@
 export const EMPTY_FORM = {
   name: "",
+  role: "",
   story: "",
   latitude: "",
   longitude: "",

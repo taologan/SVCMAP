@@ -5,20 +5,19 @@ import { initializeApp } from 'firebase/app'
 import {
   GeoPoint,
   collection,
+  deleteField,
   doc,
   getFirestore,
-  serverTimestamp,
   writeBatch,
 } from 'firebase/firestore'
 
 const MOCK_ENTITIES = [
   {
     id: 'john-wesley-dobbs',
-    type: 'person',
     name: 'John Wesley Dobbs and Family',
     summary:
       "Often referred to as the unofficial mayor of Auburn Avenue, Dobbs coined the term 'Sweet Auburn' and helped lead major voter registration and civic organizing in Atlanta's Black community.",
-    dates: 'Voting rights advocate',
+    role: 'Voting rights advocate',
     coordinates: [
       [33.7554, -84.3738],
       [33.7559, -84.3729],
@@ -26,11 +25,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'clara-maxwell-cater-pitts',
-    type: 'person',
     name: 'Clara Maxwell Cater Pitts',
     summary:
       'Pitts served as superintendent of the Carrie Steele Orphans Home, modernized its operations, and was later honored with the renamed Carrie Steele Pitts Home and a school in her name.',
-    dates: 'Educator and orphanage manager',
+    role: 'Educator and orphanage manager',
     coordinates: [
       [33.7347, -84.4152],
       [33.7388, -84.4126],
@@ -38,11 +36,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'moses-amos',
-    type: 'person',
     name: 'Moses Amos',
     summary:
       'Amos became the first African American granted a Georgia druggist license in 1911 and built Gate City Drug Store into a hub of mentorship and opportunity.',
-    dates: 'First licensed Black pharmacist in Georgia',
+    role: 'First licensed Black pharmacist in Georgia',
     coordinates: [
       [33.7598, -84.3878],
       [33.7555, -84.3735],
@@ -50,11 +47,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'dinah-watts-pace',
-    type: 'person',
     name: 'Dinah Watts Pace',
     summary:
       "Born enslaved in 1833, Pace founded one of Georgia's earliest orphanages for African American children and helped build foundational faith and education institutions.",
-    dates: 'Educator and orphanage founder',
+    role: 'Educator and orphanage founder',
     coordinates: [
       [33.7366, -84.3866],
       [33.5968, -83.8602],
@@ -62,11 +58,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'adrienne-herndon',
-    type: 'person',
     name: 'Adrienne Herndon',
     summary:
       "Herndon was an educator and performer who became one of Atlanta University's first Black faculty members and later designed the Herndon family's Diamond Hill estate.",
-    dates: 'Educator and actor',
+    role: 'Educator and actor',
     coordinates: [
       [33.749, -84.4122],
       [33.7674, -84.3992],
@@ -74,20 +69,18 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'george-union-wilder',
-    type: 'person',
     name: 'George "Union" Wilder',
     summary:
       'In Brownsville, Wilder was killed while defending his home during the 1906 Race Massacre; this resistance slowed white mobs as violence spread.',
-    dates: 'Victim of the 1906 Race Massacre',
+    role: 'Victim of the 1906 Race Massacre',
     coordinates: [[33.6893, -84.3885]],
   },
   {
     id: 'ad-jennie-williams',
-    type: 'person',
     name: 'A. D. and Jennie Williams',
     summary:
       "A.D. Williams and Jennie Parks Williams shaped Ebenezer's civic and faith leadership, with A.D. also helping found the Atlanta NAACP branch.",
-    dates: 'Grandparents of Dr. Martin Luther King Jr.',
+    role: 'Grandparents of Dr. Martin Luther King Jr.',
     coordinates: [
       [33.7542, -84.3738],
       [33.7546, -84.3729],
@@ -95,20 +88,18 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'walter-westmoreland',
-    type: 'person',
     name: 'Walter Westmoreland',
     summary:
       'Westmoreland, a Morehouse and Atlanta University graduate, served as a Tuskegee Airman with the Red Tail Flyers during WWII.',
-    dates: 'First Lieutenant, Tuskegee Airman',
+    role: 'First Lieutenant, Tuskegee Airman',
     coordinates: [[33.7478, -84.4141]],
   },
   {
     id: 'mlk-sr-and-alberta',
-    type: 'person',
     name: 'Rev. and Mrs. Martin Luther King, Sr.',
     summary:
       "Rev. Martin Luther King Sr. and Alberta Williams King helped shape Atlanta's religious and civic life through decades of leadership at Ebenezer and beyond.",
-    dates: 'Parents of Dr. Martin Luther King Jr.',
+    role: 'Parents of Dr. Martin Luther King Jr.',
     coordinates: [
       [33.7542, -84.3738],
       [33.749, -84.388],
@@ -116,11 +107,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'henry-aaron',
-    type: 'person',
     name: 'Henry Aaron',
     summary:
       'Aaron broke baseball barriers on and off the field, then leveraged his legacy to support civil rights and public service causes.',
-    dates: 'Baseball legend and civil rights supporter',
+    role: 'Baseball legend and civil rights supporter',
     coordinates: [
       [33.7348, -84.3899],
       [33.755, -84.3727],
@@ -128,11 +118,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'julian-bond',
-    type: 'person',
     name: 'Julian Bond',
     summary:
       'Bond rose from student activism at Morehouse to SNCC leadership and major public service in Georgia politics and civil rights advocacy.',
-    dates: 'Civil rights organizer and legislator',
+    role: 'Civil rights organizer and legislator',
     coordinates: [
       [33.7478, -84.4141],
       [33.749, -84.3878],
@@ -140,11 +129,10 @@ const MOCK_ENTITIES = [
   },
   {
     id: 'john-lewis',
-    type: 'person',
     name: 'Congressman John Lewis',
     summary:
       'Lewis bridged grassroots civil rights organizing and national public office, representing Georgia while sustaining movement leadership for decades.',
-    dates: 'Civil rights leader and U.S. Congressman',
+    role: 'Civil rights leader and U.S. Congressman',
     coordinates: [
       [33.7552, -84.3903],
       [33.7493, -84.3884],
@@ -244,14 +232,15 @@ async function seedEntities() {
         docRef,
         {
           id: entity.id,
-          type: entity.type ?? 'person',
           name: entity.name,
           summary: entity.summary ?? '',
-          dates: entity.dates ?? '',
+          role: entity.role ?? '',
           coordinates: entity.coordinates.map(([lat, lng]) => new GeoPoint(lat, lng)),
-          uploadedFiles: [],
-          source: 'seed',
-          createdAt: serverTimestamp(),
+          dates: deleteField(),
+          type: deleteField(),
+          source: deleteField(),
+          migratedAt: deleteField(),
+          migratedFrom: deleteField(),
         },
         { merge: true },
       )
