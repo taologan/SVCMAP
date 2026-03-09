@@ -126,8 +126,7 @@ function App() {
   const handleSubmitWaypoint = async ({
     name,
     story,
-    latitude,
-    longitude,
+    coordinates,
     contactEmail,
     contactPhone,
     files,
@@ -138,7 +137,7 @@ function App() {
         name,
         summary: story,
         dates: "Community submission",
-        coordinates: [[latitude, longitude]],
+        coordinates,
         uploadedFiles: files.map((file) => file.name),
         source: "user",
         submitterEmail: contactEmail,

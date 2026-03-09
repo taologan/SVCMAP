@@ -3,6 +3,7 @@ export const EMPTY_FORM = {
   story: "",
   latitude: "",
   longitude: "",
+  coordinates: [],
   contactEmail: "",
   contactPhone: "",
   files: [],
