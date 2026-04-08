@@ -40,7 +40,6 @@ function App() {
   const { entities, entitiesStatus, entitiesError, reloadEntities } =
     useMapEntities();
   const {
-    showMarkers,
     visibleEntities,
     focusEntity,
     isPickingCoordinates,
@@ -246,7 +245,6 @@ function App() {
           onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
           entitiesStatus={entitiesStatus}
           entitiesError={entitiesError}
-          showMarkers={showMarkers}
           visibleEntities={visibleEntities}
           activeEntity={activeEntity}
           onFocusEntity={focusEntity}

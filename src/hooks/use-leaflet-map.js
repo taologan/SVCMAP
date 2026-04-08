@@ -78,8 +78,8 @@ export function useLeafletMap({
   const heatData = useMemo(() => buildHeatData(pointEntities), [pointEntities]);
   const showMarkers = zoom >= MARKER_VISIBILITY_ZOOM;
   const visibleEntities = useMemo(
-    () => getVisibleEntities({ entities, bounds, showMarkers }),
-    [bounds, entities, showMarkers],
+    () => getVisibleEntities({ entities, bounds }),
+    [bounds, entities],
   );
 
   const focusEntity = useCallback(

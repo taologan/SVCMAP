@@ -40,8 +40,8 @@ export function buildHeatData(pointEntities) {
   };
 }
 
-export function getVisibleEntities({ entities, bounds, showMarkers }) {
-  if (!bounds || !showMarkers) return [];
+export function getVisibleEntities({ entities, bounds }) {
+  if (!bounds) return [];
 
   return entities
     .map((entity) => {

@@ -280,9 +280,6 @@ function DetailsDrawer({ activeEntity, onClose }) {
                           <source src={audioRef} />
                           Your browser does not support audio playback.
                         </audio>
-                        <a href={audioRef} target="_blank" rel="noreferrer">
-                          {makeDisplayLabel(audioRef, "Open audio file")}
-                        </a>
                       </div>
                     ))}
                   </div>

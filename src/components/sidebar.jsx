@@ -5,7 +5,6 @@ function Sidebar({
   onToggleCollapse,
   entitiesStatus,
   entitiesError,
-  showMarkers,
   visibleEntities,
   activeEntity,
   onFocusEntity,
@@ -46,17 +45,7 @@ function Sidebar({
     );
   }, [filteredVisibleEntities, sortMode]);
 
-  const sidebarEntities = useMemo(() => {
-    if (showMarkers) return sortedVisibleEntities;
-    if (!activeEntity) return [];
-    return [
-      {
-        entity: activeEntity,
-        visiblePointCount: activeEntity.coordinates?.length ?? 1,
-        visiblePoints: activeEntity.coordinates ?? [],
-      },
-    ];
-  }, [activeEntity, showMarkers, sortedVisibleEntities]);
+  const sidebarEntities = sortedVisibleEntities;
 
   return (
     <aside
@@ -141,19 +130,12 @@ function Sidebar({
         {entitiesStatus === "error" ? (
           <p className="sidebar-empty">{entitiesError}</p>
         ) : null}
-        {!showMarkers && !activeEntity ? (
-          <p className="sidebar-empty">
-            Zoom further in to see a list of people.
-          </p>
-        ) : null}
-        {showMarkers && visibleEntities.length === 0 ? (
+        {visibleEntities.length === 0 ? (
           <p className="sidebar-empty">
             No waypoints in this view. Pan or zoom to another area.
           </p>
         ) : null}
-        {showMarkers &&
-        visibleEntities.length > 0 &&
-        sortedVisibleEntities.length === 0 ? (
+        {visibleEntities.length > 0 && sortedVisibleEntities.length === 0 ? (
           <p className="sidebar-empty">
             No visible waypoints match the current filters.
           </p>
