@@ -8,48 +8,23 @@ function clamp(value, min, max) {
 
 function UserTutorial({ isOpen, steps, onClose }) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [targetRect, setTargetRect] = useState(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setStepIndex(0);
-    }
-  }, [isOpen]);
+  const [, setViewportVersion] = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const step = steps[stepIndex];
-    if (!step?.selector) {
-      setTargetRect(null);
-      return;
-    }
-
-    const updateTargetRect = () => {
-      const target = document.querySelector(step.selector);
-      if (!target) {
-        setTargetRect(null);
-        return;
-      }
-
-      const rect = target.getBoundingClientRect();
-      setTargetRect({
-        top: rect.top,
-        left: rect.left,
-        width: rect.width,
-        height: rect.height,
-      });
+    const updateViewportVersion = () => {
+      setViewportVersion((current) => current + 1);
     };
 
-    updateTargetRect();
-    window.addEventListener("resize", updateTargetRect);
-    window.addEventListener("scroll", updateTargetRect, true);
+    window.addEventListener("resize", updateViewportVersion);
+    window.addEventListener("scroll", updateViewportVersion, true);
 
     return () => {
-      window.removeEventListener("resize", updateTargetRect);
-      window.removeEventListener("scroll", updateTargetRect, true);
+      window.removeEventListener("resize", updateViewportVersion);
+      window.removeEventListener("scroll", updateViewportVersion, true);
     };
-  }, [isOpen, stepIndex, steps]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -66,6 +41,20 @@ function UserTutorial({ isOpen, steps, onClose }) {
 
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex >= steps.length - 1;
+  const targetRect = (() => {
+    if (!isOpen || !currentStep?.selector) return null;
+
+    const target = document.querySelector(currentStep.selector);
+    if (!target) return null;
+
+    const rect = target.getBoundingClientRect();
+    return {
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
+    };
+  })();
 
   const cardStyle = useMemo(() => {
     if (!targetRect) return null;

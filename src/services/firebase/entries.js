@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "./client";
@@ -31,6 +32,12 @@ export async function updateEntry({
   name,
   summary,
   role,
+  storyType,
+  neighborhood,
+  graveLocation,
+  sourceLabel,
+  sourceUrl,
+  externalLinks,
   coordinates,
   uploadedFiles = [],
 }) {
@@ -48,6 +55,12 @@ export async function updateEntry({
     name,
     summary,
     role,
+    storyType,
+    neighborhood,
+    graveLocation,
+    sourceLabel,
+    sourceUrl,
+    externalLinks,
     coordinates,
     uploadedFiles: uploadedFileUrls,
   });
@@ -61,6 +74,51 @@ export async function updateEntry({
   console.info(`[firebase] Updated entries/${entryId}`);
 
   return { id: entryId, ...sanitized };
+}
+
+export async function createEntry({
+  name,
+  summary,
+  role,
+  storyType,
+  neighborhood,
+  graveLocation,
+  sourceLabel,
+  sourceUrl,
+  externalLinks,
+  coordinates,
+  uploadedFiles = [],
+}) {
+  const entryCollection = collection(db, "entries");
+  const entryRef = doc(entryCollection);
+  const uploadedFileUrls = await resolveUploadedFiles({
+    folder: "entries",
+    recordId: entryRef.id,
+    uploadedFiles,
+  });
+  const sanitized = sanitizeEntryPayload({
+    name,
+    summary,
+    role,
+    storyType,
+    neighborhood,
+    graveLocation,
+    sourceLabel,
+    sourceUrl,
+    externalLinks,
+    coordinates,
+    uploadedFiles: uploadedFileUrls,
+  });
+
+  await setDoc(entryRef, {
+    id: entryRef.id,
+    ...sanitized,
+    coordinates: toFirestoreCoordinates(sanitized.coordinates),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return { id: entryRef.id, ...sanitized };
 }
 
 export async function deleteEntry(entryId) {

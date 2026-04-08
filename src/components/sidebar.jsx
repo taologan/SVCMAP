@@ -81,7 +81,11 @@ function Sidebar({
       </button>
       <div className="visible-sidebar-body">
         <p className="eyebrow">On-screen waypoints</p>
-        <h3>Visible People & Sites</h3>
+        <h3>Visible Stories</h3>
+        <p className="sidebar-intro">
+          Browse by names and keywords to turn the map into a guided story index
+          instead of a raw marker list.
+        </p>
         <div className="sidebar-controls">
           <label className="sidebar-sort-label" htmlFor="sidebar-sort">
             Sort
@@ -97,8 +101,19 @@ function Sidebar({
           </select>
         </div>
         <div className="sidebar-filter-grid">
+          {/* <label className="sidebar-filter-field" htmlFor="sidebar-story-type">
+            Story type
+          </label>
+          <select
+            id="sidebar-story-type"
+            className="sidebar-filter-input"
+            value={storyTypeFilter}
+            onChange={(event) => setStoryTypeFilter(event.target.value)}
+          >
+            <option value="all">All story types</option>
+          </select> */}
           <label className="sidebar-filter-field" htmlFor="sidebar-person-name">
-            Person name
+            Person or site
           </label>
           <input
             id="sidebar-person-name"
@@ -106,7 +121,7 @@ function Sidebar({
             type="text"
             value={nameFilter}
             onChange={(event) => setNameFilter(event.target.value)}
-            placeholder="Filter by person name"
+            placeholder="Filter by person or site"
           />
           <label className="sidebar-filter-field" htmlFor="sidebar-keywords">
             Keywords
@@ -117,7 +132,7 @@ function Sidebar({
             type="text"
             value={keywordFilter}
             onChange={(event) => setKeywordFilter(event.target.value)}
-            placeholder="Filter by story or role"
+            placeholder="Filter by role or story"
           />
         </div>
         {entitiesStatus === "loading" ? (
@@ -163,13 +178,17 @@ function Sidebar({
                     onFocusEntity(entry.entity, entry.visiblePoints);
                   }}
                 >
-                  <strong>{entry.entity.name}</strong>
+                    <strong>{entry.entity.name}</strong>
                   {entry.entity.role || entry.visiblePointCount > 1 ? (
                     <span>
-                      {entry.entity.role}
-                      {entry.visiblePointCount > 1
-                        ? `${entry.entity.role ? " • " : ""}${entry.visiblePointCount} points in view`
-                        : ""}
+                      {[
+                        entry.entity.role,
+                        entry.visiblePointCount > 1
+                          ? `${entry.visiblePointCount} points in view`
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" • ")}
                     </span>
                   ) : null}
                 </button>

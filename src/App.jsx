@@ -11,6 +11,7 @@ import TopBar from "./components/top-bar";
 import CoordinatePickerBanner from "./components/coordinate-picker-banner";
 import UserTutorial from "./components/user-tutorial";
 import { useAuth } from "./hooks/use-auth";
+import { useAppSettings } from "./hooks/use-app-settings";
 import { useLeafletMap } from "./hooks/use-leaflet-map";
 import { useMapEntities } from "./hooks/use-map-entities";
 import { addPending, lookupRequestStatus } from "./firebase";
@@ -27,11 +28,15 @@ function App() {
   const [submissionReceipt, setSubmissionReceipt] = useState(null);
   const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
   const [isStatusLookupOpen, setIsStatusLookupOpen] = useState(false);
-  const [isUserTutorialOpen, setIsUserTutorialOpen] = useState(false);
+  const [isUserTutorialOpen, setIsUserTutorialOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(USER_TUTORIAL_STORAGE_KEY) !== "true";
+  });
   const [overlayTop, setOverlayTop] = useState(128);
 
   const { isSigningIn, isSigningOut, authUser, isAdmin, isCheckingAdmin, signIn, signOut } =
     useAuth();
+  const { allowCommunitySubmissions } = useAppSettings();
   const { entities, entitiesStatus, entitiesError, reloadEntities } =
     useMapEntities();
   const {
@@ -80,14 +85,6 @@ function App() {
   }, [activeEntity, entities]);
 
   useEffect(() => {
-    const hasSeenTutorial =
-      window.localStorage.getItem(USER_TUTORIAL_STORAGE_KEY) === "true";
-    if (!hasSeenTutorial) {
-      setIsUserTutorialOpen(true);
-    }
-  }, []);
-
-  useEffect(() => {
     const topBar = topBarRef.current;
     if (!topBar) return;
 
@@ -127,6 +124,12 @@ function App() {
   const handleSubmitWaypoint = async ({
     name,
     role,
+    storyType,
+    neighborhood,
+    graveLocation,
+    sourceLabel,
+    sourceUrl,
+    externalLinks,
     story,
     coordinates,
     contactEmail,
@@ -137,6 +140,12 @@ function App() {
       const pendingRequest = await addPending({
         name,
         role,
+        storyType,
+        neighborhood,
+        graveLocation,
+        sourceLabel,
+        sourceUrl,
+        externalLinks,
         summary: story,
         coordinates,
         uploadedFiles: files,
@@ -175,22 +184,10 @@ function App() {
 
   const userTutorialSteps = [
     {
-      selector: ".add-waypoint-btn:not(.secondary)",
-      title: "Add Connection",
-      description:
-        "Use this button to submit a new waypoint request. You can share a name, story, coordinates, and contact details.",
-    },
-    {
-      selector: ".add-waypoint-btn.secondary",
-      title: "Check Request Status",
-      description:
-        "After submitting, use this button to look up your request by email or phone and see if it is pending, approved, or denied.",
-    },
-    {
       selector: ".visible-sidebar",
-      title: "Visible List",
+      title: "Explore Stories",
       description:
-        "This panel shows people and sites currently on-screen. Use filters and sort controls to quickly find a record.",
+        "Use the filters to browse stories by theme, neighborhood, person name, or what is currently visible on the map.",
     },
     {
       selector: ".map",
@@ -198,7 +195,30 @@ function App() {
       description:
         "Pan and zoom the map to explore more markers. Click a marker or list item to open details in the right-side drawer.",
     },
+    {
+      selector: ".details-drawer",
+      title: "Deeper Context",
+      description:
+        "Each story panel can include SVC-managed resource links, burial clues, and media that connect the map to the wider South-View ecosystem.",
+    },
   ];
+
+  if (allowCommunitySubmissions) {
+    userTutorialSteps.unshift(
+      {
+        selector: ".add-waypoint-btn:not(.secondary)",
+        title: "Suggest a Story",
+        description:
+          "Use this button to submit a new waypoint request with a story, coordinates, and contact information.",
+      },
+      {
+        selector: ".add-waypoint-btn.secondary",
+        title: "Check Request Status",
+        description:
+          "After submitting, use this button to look up your request by email or phone and see whether it is pending, approved, or denied.",
+      },
+    );
+  }
 
   return (
     <main className="app">
@@ -212,8 +232,14 @@ function App() {
           isAdmin={isAdmin}
           onAdminLogin={handleAdminLogin}
           onSignOut={signOut}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
-          onOpenStatusLookupModal={() => setIsStatusLookupOpen(true)}
+          onOpenAddModal={
+            allowCommunitySubmissions ? () => setIsAddModalOpen(true) : undefined
+          }
+          onOpenStatusLookupModal={
+            allowCommunitySubmissions
+              ? () => setIsStatusLookupOpen(true)
+              : undefined
+          }
         />
         <Sidebar
           isSidebarCollapsed={isSidebarCollapsed}
@@ -237,34 +263,42 @@ function App() {
         />
       </section>
 
-      <AddWaypointModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSubmitWaypoint={handleSubmitWaypoint}
-        onSubmissionSuccess={handleSubmissionSuccess}
-        onRequestCoordinatePick={requestCoordinatePick}
-      />
-      <SubmissionSuccessModal
-        isOpen={isSubmissionSuccessOpen}
-        submissionReceipt={submissionReceipt}
-        onClose={() => setIsSubmissionSuccessOpen(false)}
-      />
-      <StatusLookupModal
-        isOpen={isStatusLookupOpen}
-        onClose={() => setIsStatusLookupOpen(false)}
-        onLookup={handleStatusLookup}
-      />
+      {allowCommunitySubmissions ? (
+        <>
+          <AddWaypointModal
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            onSubmitWaypoint={handleSubmitWaypoint}
+            onSubmissionSuccess={handleSubmissionSuccess}
+            onRequestCoordinatePick={requestCoordinatePick}
+          />
+          <SubmissionSuccessModal
+            isOpen={isSubmissionSuccessOpen}
+            submissionReceipt={submissionReceipt}
+            onClose={() => setIsSubmissionSuccessOpen(false)}
+          />
+          <StatusLookupModal
+            isOpen={isStatusLookupOpen}
+            onClose={() => setIsStatusLookupOpen(false)}
+            onLookup={handleStatusLookup}
+          />
+        </>
+      ) : null}
       <AdminPanel
         isOpen={isAdmin && isAdminPanelOpen}
         userEmail={authUser?.email}
         onClose={() => setIsAdminPanelOpen(false)}
         onEntriesChanged={reloadEntities}
+        allowCommunitySubmissions={allowCommunitySubmissions}
+        onRequestCoordinatePick={requestCoordinatePick}
       />
-      <UserTutorial
-        isOpen={isUserTutorialOpen}
-        steps={userTutorialSteps}
-        onClose={closeUserTutorial}
-      />
+      {isUserTutorialOpen ? (
+        <UserTutorial
+          isOpen={isUserTutorialOpen}
+          steps={userTutorialSteps}
+          onClose={closeUserTutorial}
+        />
+      ) : null}
     </main>
   );
 }

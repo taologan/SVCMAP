@@ -1,6 +1,12 @@
 export const EMPTY_FORM = {
   name: "",
   role: "",
+  storyType: "",
+  neighborhood: "",
+  graveLocation: "",
+  sourceLabel: "",
+  sourceUrl: "",
+  externalLinks: "",
   story: "",
   latitude: "",
   longitude: "",
@@ -28,3 +34,34 @@ export const CARTO_LIGHT_BASEMAP = {
     maxZoom: 20,
   },
 };
+
+export const APP_CONFIG = {
+  defaultAllowCommunitySubmissions: false,
+  foundationLinks: [
+    {
+      label: "South-View Foundation",
+      url: "https://www.southviewfoundation.org/",
+    },
+    {
+      label: "Support the Foundation",
+      url: "https://givebutter.com/southview-cemetary-qtdsw7",
+    },
+    {
+      label: "Instagram Storytelling",
+      url: "https://www.instagram.com/cslmc475/",
+    },
+    // {
+    //   label: "TikTok Storytelling",
+    //   url: "https://www.tiktok.com/",
+    // },
+  ],
+};
+
+export const STORY_TYPE_OPTIONS = [
+  "Community memory",
+  "Burial record",
+  "Atlanta landmark",
+  "Civil rights history",
+  "Family connection",
+  "Education resource",
+];

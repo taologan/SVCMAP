@@ -150,6 +150,22 @@ function AddWaypointModal({
       const submissionReceipt = await onSubmitWaypoint({
         name,
         role,
+        storyType: form.storyType.trim(),
+        neighborhood: form.neighborhood.trim(),
+        graveLocation: form.graveLocation.trim(),
+        sourceLabel: form.sourceLabel.trim(),
+        sourceUrl: form.sourceUrl.trim(),
+        externalLinks: form.externalLinks
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => {
+            const [labelPart, urlPart] = line.split("|").map((part) => part.trim());
+            if (!urlPart) {
+              return { label: labelPart, url: labelPart };
+            }
+            return { label: labelPart, url: urlPart };
+          }),
         story,
         coordinates: form.coordinates,
         contactEmail,
@@ -202,6 +218,36 @@ function AddWaypointModal({
               required
             />
           </label>
+          {/* <label>
+            Story type
+            <input
+              name="storyType"
+              type="text"
+              value={form.storyType}
+              onChange={handleFieldChange}
+              placeholder="Community memory, burial record, Atlanta landmark..."
+            />
+          </label>
+          <label>
+            Atlanta connection
+            <input
+              name="neighborhood"
+              type="text"
+              value={form.neighborhood}
+              onChange={handleFieldChange}
+              placeholder="Neighborhood, institution, or place tied to the story"
+            />
+          </label> */}
+          <label>
+            Burial location or grave note
+            <input
+              name="graveLocation"
+              type="text"
+              value={form.graveLocation}
+              onChange={handleFieldChange}
+              placeholder="Section, lot, grave number, or navigation clue"
+            />
+          </label>
           <label>
             Story
             <textarea
@@ -211,6 +257,36 @@ function AddWaypointModal({
               placeholder="Short story or description"
               rows={4}
               required
+            />
+          </label>
+          {/* <label>
+            SVC resource label
+            <input
+              name="sourceLabel"
+              type="text"
+              value={form.sourceLabel}
+              onChange={handleFieldChange}
+              placeholder="Biography page, foundation resource, archive..."
+            />
+          </label>
+          <label>
+            SVC resource link
+            <input
+              name="sourceUrl"
+              type="url"
+              value={form.sourceUrl}
+              onChange={handleFieldChange}
+              placeholder="https://"
+            />
+          </label> */}
+          <label>
+            Additional links
+            <textarea
+              name="externalLinks"
+              value={form.externalLinks}
+              onChange={handleFieldChange}
+              placeholder="One per line: Label | https://example.com"
+              rows={3}
             />
           </label>
           <div className="coord-grid">

@@ -1,5 +1,35 @@
 import { GeoPoint } from "firebase/firestore";
 
+function normalizeText(value) {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function normalizeOptionalText(value) {
+  const text = normalizeText(value);
+  return text || "";
+}
+
+function normalizeLinkItem(value) {
+  if (typeof value === "string") {
+    const url = value.trim();
+    if (!url) return null;
+    return { label: url, url };
+  }
+
+  if (value && typeof value === "object") {
+    const label = normalizeOptionalText(value.label || value.title || value.name);
+    const url = normalizeOptionalText(value.url || value.href);
+    if (!url) return null;
+    return {
+      label: label || url,
+      url,
+    };
+  }
+
+  return null;
+}
+
 function normalizeCoordinate(value) {
   if (Array.isArray(value) && value.length === 2) {
     const [lat, lng] = value;
@@ -33,6 +63,11 @@ export function normalizeUploadedFiles(value) {
     .filter(Boolean);
 }
 
+export function normalizeExternalLinks(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((link) => normalizeLinkItem(link)).filter(Boolean);
+}
+
 export function normalizeEntityDoc(entityDoc) {
   const data = entityDoc.data();
   const coordinates = normalizeCoordinates(data.coordinates);
@@ -43,6 +78,12 @@ export function normalizeEntityDoc(entityDoc) {
     name: data.name ?? "Unknown",
     summary: data.summary ?? "",
     role: data.role ?? data.dates ?? "",
+    storyType: normalizeOptionalText(data.storyType),
+    neighborhood: normalizeOptionalText(data.neighborhood),
+    graveLocation: normalizeOptionalText(data.graveLocation),
+    sourceLabel: normalizeOptionalText(data.sourceLabel),
+    sourceUrl: normalizeOptionalText(data.sourceUrl),
+    externalLinks: normalizeExternalLinks(data.externalLinks),
     coordinates,
     uploadedFiles: normalizeUploadedFiles(data.uploadedFiles),
   };
@@ -55,6 +96,12 @@ export function normalizeAdminEntityDoc(entityDoc) {
     name: data.name ?? "Unknown",
     summary: data.summary ?? "",
     role: data.role ?? data.dates ?? "",
+    storyType: normalizeOptionalText(data.storyType),
+    neighborhood: normalizeOptionalText(data.neighborhood),
+    graveLocation: normalizeOptionalText(data.graveLocation),
+    sourceLabel: normalizeOptionalText(data.sourceLabel),
+    sourceUrl: normalizeOptionalText(data.sourceUrl),
+    externalLinks: normalizeExternalLinks(data.externalLinks),
     coordinates: normalizeCoordinates(data.coordinates),
     uploadedFiles: normalizeUploadedFiles(data.uploadedFiles),
   };
@@ -69,6 +116,12 @@ export function sanitizePendingPayload(payload) {
     name: payload.name ?? "Unknown",
     summary: payload.summary ?? "",
     role: payload.role ?? payload.dates ?? "",
+    storyType: normalizeOptionalText(payload.storyType),
+    neighborhood: normalizeOptionalText(payload.neighborhood),
+    graveLocation: normalizeOptionalText(payload.graveLocation),
+    sourceLabel: normalizeOptionalText(payload.sourceLabel),
+    sourceUrl: normalizeOptionalText(payload.sourceUrl),
+    externalLinks: normalizeExternalLinks(payload.externalLinks),
     coordinates: normalizeCoordinates(payload.coordinates),
     uploadedFiles: normalizeUploadedFiles(payload.uploadedFiles),
   };
@@ -79,6 +132,12 @@ export function sanitizeEntryPayload(payload) {
     name: payload.name ?? "Unknown",
     summary: payload.summary ?? "",
     role: payload.role ?? payload.dates ?? "",
+    storyType: normalizeOptionalText(payload.storyType),
+    neighborhood: normalizeOptionalText(payload.neighborhood),
+    graveLocation: normalizeOptionalText(payload.graveLocation),
+    sourceLabel: normalizeOptionalText(payload.sourceLabel),
+    sourceUrl: normalizeOptionalText(payload.sourceUrl),
+    externalLinks: normalizeExternalLinks(payload.externalLinks),
     coordinates: normalizeCoordinates(payload.coordinates),
     uploadedFiles: normalizeUploadedFiles(payload.uploadedFiles),
   };

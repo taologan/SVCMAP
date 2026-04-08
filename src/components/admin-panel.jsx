@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   approvePending,
+  createEntry,
   deleteEntry,
   denyPending,
   getAllEntriesForAdmin,
   getPending,
+  updateCommunitySubmissionsSetting,
   updateEntry,
   updatePending,
 } from "../firebase";
 import {
   SUPPORTED_UPLOAD_ACCEPT,
-  isSupportedUploadFile,
   getUnsupportedUploadMessage,
+  isSupportedUploadFile,
 } from "../utils/upload-files";
 
 function coordinatesToText(coordinates = []) {
@@ -20,6 +22,10 @@ function coordinatesToText(coordinates = []) {
 
 function filesToText(uploadedFiles = []) {
   return uploadedFiles.join("\n");
+}
+
+function externalLinksToText(externalLinks = []) {
+  return externalLinks.map((link) => `${link.label} | ${link.url}`).join("\n");
 }
 
 function parseCoordinates(text) {
@@ -65,67 +71,144 @@ function parseFiles(text) {
     .filter(Boolean);
 }
 
-function makePendingDraft(record) {
+function parseExternalLinks(text) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [labelPart, urlPart] = line.split("|").map((part) => part.trim());
+      if (!urlPart) {
+        return { label: labelPart, url: labelPart };
+      }
+      return { label: labelPart || urlPart, url: urlPart };
+    })
+    .filter((link) => link.url);
+}
+
+function makeDraft(record = {}) {
   return {
-    id: record.id,
+    id: record.id ?? null,
     name: record.name ?? "",
-    summary: record.summary ?? "",
     role: record.role ?? "",
+    storyType: record.storyType ?? "",
+    neighborhood: record.neighborhood ?? "",
+    graveLocation: record.graveLocation ?? "",
+    sourceLabel: record.sourceLabel ?? "",
+    sourceUrl: record.sourceUrl ?? "",
+    summary: record.summary ?? "",
     coordinatesText: coordinatesToText(record.coordinates),
     uploadedFilesText: filesToText(record.uploadedFiles),
+    externalLinksText: externalLinksToText(record.externalLinks),
   };
 }
 
-function makeEntryDraft(record) {
+function appendCoordinateLine(existingText, coordinate) {
+  const nextLine = `${coordinate.latitude}, ${coordinate.longitude}`;
+  const trimmed = (existingText ?? "").trim();
+  return trimmed ? `${trimmed}\n${nextLine}` : nextLine;
+}
+
+function buildPayloadFromDraft(draft, newFiles = []) {
+  if (!draft) return { error: "No record selected.", payload: null };
+
+  const name = draft.name.trim();
+  const role = draft.role.trim();
+  const summary = draft.summary.trim();
+
+  if (!name || !role || !summary) {
+    return {
+      error: "Name, role, and summary are required.",
+      payload: null,
+    };
+  }
+
+  const unsupportedMessage = getUnsupportedUploadMessage(newFiles);
+  if (unsupportedMessage) {
+    return { error: unsupportedMessage, payload: null };
+  }
+
+  const parsedCoordinates = parseCoordinates(draft.coordinatesText);
+  if (parsedCoordinates.error) {
+    return { error: parsedCoordinates.error, payload: null };
+  }
+
   return {
-    id: record.id,
-    name: record.name ?? "",
-    summary: record.summary ?? "",
-    role: record.role ?? "",
-    coordinatesText: coordinatesToText(record.coordinates),
-    uploadedFilesText: filesToText(record.uploadedFiles),
+    error: "",
+    payload: {
+      name,
+      role,
+      storyType: draft.storyType.trim(),
+      neighborhood: draft.neighborhood.trim(),
+      graveLocation: draft.graveLocation.trim(),
+      sourceLabel: draft.sourceLabel.trim(),
+      sourceUrl: draft.sourceUrl.trim(),
+      summary,
+      coordinates: parsedCoordinates.value,
+      uploadedFiles: [...parseFiles(draft.uploadedFilesText), ...newFiles],
+      externalLinks: parseExternalLinks(draft.externalLinksText),
+    },
   };
 }
 
-function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
-  const [activeTab, setActiveTab] = useState("pending");
+const EMPTY_ENTRY_DRAFT = makeDraft();
+
+function AdminPanel({
+  isOpen,
+  userEmail,
+  onClose,
+  onEntriesChanged,
+  allowCommunitySubmissions,
+  onRequestCoordinatePick,
+}) {
+  const [activeTab, setActiveTab] = useState("entries");
   const [pendingItems, setPendingItems] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [entrySearchQuery, setEntrySearchQuery] = useState("");
+  const [selectedPendingId, setSelectedPendingId] = useState(null);
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
+  const [entryMode, setEntryMode] = useState("edit");
+  const [pendingDraft, setPendingDraft] = useState(null);
+  const [entryDraft, setEntryDraft] = useState(EMPTY_ENTRY_DRAFT);
+  const [entryNewFiles, setEntryNewFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  const [selectedPendingId, setSelectedPendingId] = useState(null);
-  const [selectedEntryId, setSelectedEntryId] = useState(null);
-  const [pendingDraft, setPendingDraft] = useState(null);
-  const [entryDraft, setEntryDraft] = useState(null);
-  const [entrySearchQuery, setEntrySearchQuery] = useState("");
-  const [entryNewFiles, setEntryNewFiles] = useState([]);
-
   const [isSavingPending, setIsSavingPending] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isDenying, setIsDenying] = useState(false);
   const [isSavingEntry, setIsSavingEntry] = useState(false);
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isSavingCommunitySetting, setIsSavingCommunitySetting] = useState(false);
+  const [pickingCoordinatesTarget, setPickingCoordinatesTarget] = useState(null);
 
   const selectedPending = useMemo(
     () => pendingItems.find((item) => item.id === selectedPendingId) ?? null,
     [pendingItems, selectedPendingId],
   );
 
-  const selectedEntry = useMemo(
-    () => entries.find((item) => item.id === selectedEntryId) ?? null,
-    [entries, selectedEntryId],
-  );
   const filteredEntries = useMemo(() => {
     const normalizedQuery = entrySearchQuery.trim().toLowerCase();
     if (!normalizedQuery) return entries;
 
     return entries.filter((item) =>
-      (item.name ?? "").toLowerCase().includes(normalizedQuery),
+      [
+        item.name,
+        item.role,
+        item.storyType,
+        item.neighborhood,
+        item.graveLocation,
+      ]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalizedQuery)),
     );
   }, [entries, entrySearchQuery]);
+
+  const selectedEntry = useMemo(
+    () => entries.find((item) => item.id === selectedEntryId) ?? null,
+    [entries, selectedEntryId],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -138,27 +221,23 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       setSuccessMessage("");
       try {
         const [pending, publishedEntries] = await Promise.all([
-          getPending(),
+          allowCommunitySubmissions ? getPending() : Promise.resolve([]),
           getAllEntriesForAdmin(),
         ]);
         if (!isMounted) return;
 
         setPendingItems(pending);
         setEntries(publishedEntries);
-
-        const firstPendingId = pending[0]?.id ?? null;
-        const firstEntryId = publishedEntries[0]?.id ?? null;
-
-        setSelectedPendingId(firstPendingId);
-        setPendingDraft(firstPendingId ? makePendingDraft(pending[0]) : null);
-
-        setSelectedEntryId(firstEntryId);
-        setEntryDraft(firstEntryId ? makeEntryDraft(publishedEntries[0]) : null);
+        setSelectedPendingId(pending[0]?.id ?? null);
+        setPendingDraft(pending[0] ? makeDraft(pending[0]) : null);
+        setSelectedEntryId(publishedEntries[0]?.id ?? null);
+        setEntryDraft(publishedEntries[0] ? makeDraft(publishedEntries[0]) : EMPTY_ENTRY_DRAFT);
+        setEntryMode(publishedEntries[0] ? "edit" : "create");
         setEntrySearchQuery("");
       } catch (loadError) {
         if (!isMounted) return;
         console.error("Failed to load admin data:", loadError);
-        setError("Unable to load admin panel data.");
+        setError("Unable to load story management data.");
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -169,7 +248,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     return () => {
       isMounted = false;
     };
-  }, [isOpen]);
+  }, [allowCommunitySubmissions, isOpen]);
 
   useEffect(() => {
     if (!selectedPending) {
@@ -177,19 +256,20 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       return;
     }
 
-    setPendingDraft(makePendingDraft(selectedPending));
+    setPendingDraft(makeDraft(selectedPending));
   }, [selectedPending]);
 
   useEffect(() => {
+    if (entryMode !== "edit") return;
     if (!selectedEntry) {
-      setEntryDraft(null);
+      setEntryDraft(EMPTY_ENTRY_DRAFT);
       setEntryNewFiles([]);
       return;
     }
 
-    setEntryDraft(makeEntryDraft(selectedEntry));
+    setEntryDraft(makeDraft(selectedEntry));
     setEntryNewFiles([]);
-  }, [selectedEntry]);
+  }, [entryMode, selectedEntry]);
 
   if (!isOpen) return null;
 
@@ -198,73 +278,7 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
   };
 
   const setEntryField = (key, value) => {
-    setEntryDraft((current) => (current ? { ...current, [key]: value } : current));
-  };
-
-  const buildPendingPayloadFromDraft = (draft) => {
-    if (!draft) return { error: "No record selected.", payload: null };
-    const name = draft.name.trim();
-    const role = draft.role.trim();
-    const summary = draft.summary.trim();
-    if (!name || !role || !summary) {
-      return {
-        error: "Name, role, and summary are required.",
-        payload: null,
-      };
-    }
-
-    const parsedCoordinates = parseCoordinates(draft.coordinatesText);
-    if (parsedCoordinates.error) {
-      return { error: parsedCoordinates.error, payload: null };
-    }
-
-    return {
-      error: "",
-      payload: {
-        name,
-        summary,
-        role,
-        coordinates: parsedCoordinates.value,
-        uploadedFiles: parseFiles(draft.uploadedFilesText),
-      },
-    };
-  };
-
-  const buildEntryPayloadFromDraft = (draft, newFiles = []) => {
-    if (!draft) return { error: "No record selected.", payload: null };
-    const name = draft.name.trim();
-    const role = draft.role.trim();
-    const summary = draft.summary.trim();
-    if (!name || !role || !summary) {
-      return {
-        error: "Name, role, and summary are required.",
-        payload: null,
-      };
-    }
-
-    const unsupportedMessage = getUnsupportedUploadMessage(newFiles);
-    if (unsupportedMessage) {
-      return {
-        error: unsupportedMessage,
-        payload: null,
-      };
-    }
-
-    const parsedCoordinates = parseCoordinates(draft.coordinatesText);
-    if (parsedCoordinates.error) {
-      return { error: parsedCoordinates.error, payload: null };
-    }
-
-    return {
-      error: "",
-      payload: {
-        name,
-        summary,
-        role,
-        coordinates: parsedCoordinates.value,
-        uploadedFiles: [...parseFiles(draft.uploadedFilesText), ...newFiles],
-      },
-    };
+    setEntryDraft((current) => ({ ...current, [key]: value }));
   };
 
   const handleEntryFileChange = (event) => {
@@ -291,8 +305,26 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     setError("");
   };
 
+  const handleNewEntry = () => {
+    setEntryMode("create");
+    setSelectedEntryId(null);
+    setEntryDraft(EMPTY_ENTRY_DRAFT);
+    setEntryNewFiles([]);
+    setError("");
+    setSuccessMessage("");
+    setIsDeleteConfirmOpen(false);
+  };
+
+  const handleSelectEntry = (entryId) => {
+    setEntryMode("edit");
+    setSelectedEntryId(entryId);
+    setError("");
+    setSuccessMessage("");
+    setIsDeleteConfirmOpen(false);
+  };
+
   const handleSavePending = async () => {
-    const { error: payloadError, payload } = buildPendingPayloadFromDraft(pendingDraft);
+    const { error: payloadError, payload } = buildPayloadFromDraft(pendingDraft);
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -311,17 +343,45 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       setPendingItems((current) =>
         current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
       );
-      setSuccessMessage("Pending request updated.");
+      setSuccessMessage("Pending story updated.");
     } catch (saveError) {
       console.error("Failed to update pending request:", saveError);
-      setError("Could not save pending request changes.");
+      setError("Could not save pending story changes.");
     } finally {
       setIsSavingPending(false);
     }
   };
 
+  const handleCommunitySubmissionToggle = async () => {
+    setIsSavingCommunitySetting(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const nextValue = !allowCommunitySubmissions;
+      await updateCommunitySubmissionsSetting({
+        allowCommunitySubmissions: nextValue,
+        updatedBy: userEmail ?? null,
+      });
+      setSuccessMessage(
+        nextValue
+          ? "Community submissions are now enabled."
+          : "Community submissions are now paused.",
+      );
+      if (nextValue) {
+        setActiveTab("pending");
+      } else {
+        setActiveTab("entries");
+      }
+    } catch (toggleError) {
+      console.error("Failed to update community submission setting:", toggleError);
+      setError("Could not update the community submissions setting.");
+    } finally {
+      setIsSavingCommunitySetting(false);
+    }
+  };
+
   const handleApprovePending = async () => {
-    const { error: payloadError, payload } = buildPendingPayloadFromDraft(pendingDraft);
+    const { error: payloadError, payload } = buildPayloadFromDraft(pendingDraft);
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -341,24 +401,17 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
 
       const remainingPending = pendingItems.filter((item) => item.id !== pendingId);
       setPendingItems(remainingPending);
-      setEntries((current) => {
-        const existingIndex = current.findIndex((item) => item.id === approvedEntry.id);
-        if (existingIndex >= 0) {
-          const next = [...current];
-          next[existingIndex] = approvedEntry;
-          return next;
-        }
-        return [approvedEntry, ...current];
-      });
-
+      setEntries((current) => [approvedEntry, ...current.filter((item) => item.id !== pendingId)]);
       setSelectedPendingId(remainingPending[0]?.id ?? null);
+      setPendingDraft(remainingPending[0] ? makeDraft(remainingPending[0]) : null);
+      setEntryMode("edit");
       setSelectedEntryId(approvedEntry.id);
+      setSuccessMessage("Story approved and published.");
       setActiveTab("entries");
-      setSuccessMessage("Request approved and moved to entries.");
       onEntriesChanged?.();
     } catch (approveError) {
       console.error("Failed to approve pending request:", approveError);
-      setError("Could not approve request.");
+      setError("Could not approve story.");
     } finally {
       setIsApproving(false);
     }
@@ -379,24 +432,22 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       const remainingPending = pendingItems.filter((item) => item.id !== pendingDraft.id);
       setPendingItems(remainingPending);
       setSelectedPendingId(remainingPending[0]?.id ?? null);
+      setPendingDraft(remainingPending[0] ? makeDraft(remainingPending[0]) : null);
       setSuccessMessage(
         denyResult?.alreadyProcessed
-          ? "Request was already processed elsewhere and has been removed from the pending list."
-          : "Request denied.",
+          ? "Story was already processed elsewhere and removed from the pending list."
+          : "Pending story denied.",
       );
     } catch (denyError) {
       console.error("Failed to deny pending request:", denyError);
-      setError("Could not deny request.");
+      setError("Could not deny story.");
     } finally {
       setIsDenying(false);
     }
   };
 
   const handleSaveEntry = async () => {
-    const { error: payloadError, payload } = buildEntryPayloadFromDraft(
-      entryDraft,
-      entryNewFiles,
-    );
+    const { error: payloadError, payload } = buildPayloadFromDraft(entryDraft, entryNewFiles);
     if (payloadError) {
       setError(payloadError);
       setSuccessMessage("");
@@ -407,38 +458,37 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
     setError("");
     setSuccessMessage("");
     try {
-      const updated = await updateEntry({
-        entryId: entryDraft.id,
-        ...payload,
-      });
+      if (entryMode === "create") {
+        const created = await createEntry(payload);
+        setEntries((current) => [created, ...current]);
+        setSelectedEntryId(created.id);
+        setEntryMode("edit");
+        setEntryDraft(makeDraft(created));
+        setSuccessMessage("New SVC story published.");
+      } else {
+        const updated = await updateEntry({
+          entryId: entryDraft.id,
+          ...payload,
+        });
+        setEntries((current) =>
+          current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+        );
+        setEntryDraft(makeDraft({ ...selectedEntry, ...payload, id: entryDraft.id }));
+        setSuccessMessage("Published story updated.");
+      }
 
-      setEntries((current) =>
-        current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
-      );
       setEntryNewFiles([]);
-      setSuccessMessage("Entry updated.");
       onEntriesChanged?.();
     } catch (saveError) {
-      console.error("Failed to update entry:", saveError);
-      setError("Could not save entry changes.");
+      console.error("Failed to save entry:", saveError);
+      setError(entryMode === "create" ? "Could not create story." : "Could not save story.");
     } finally {
       setIsSavingEntry(false);
     }
   };
 
-  const handleOpenDeleteConfirm = () => {
-    if (!entryDraft) return;
-    setError("");
-    setSuccessMessage("");
-    setIsDeleteConfirmOpen(true);
-  };
-
-  const handleCancelDelete = () => {
-    setIsDeleteConfirmOpen(false);
-  };
-
   const handleDeleteEntry = async () => {
-    if (!entryDraft) return;
+    if (!entryDraft.id) return;
 
     setIsDeletingEntry(true);
     setError("");
@@ -450,16 +500,157 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
       const remainingEntries = entries.filter((item) => item.id !== deletingId);
       setEntries(remainingEntries);
       setSelectedEntryId(remainingEntries[0]?.id ?? null);
+      setEntryDraft(remainingEntries[0] ? makeDraft(remainingEntries[0]) : EMPTY_ENTRY_DRAFT);
+      setEntryMode(remainingEntries[0] ? "edit" : "create");
       setIsDeleteConfirmOpen(false);
-      setSuccessMessage("Entry deleted permanently.");
+      setSuccessMessage("Story deleted permanently.");
       onEntriesChanged?.();
     } catch (deleteError) {
       console.error("Failed to delete entry:", deleteError);
-      setError("Could not delete entry.");
+      setError("Could not delete story.");
     } finally {
       setIsDeletingEntry(false);
     }
   };
+
+  const handlePickCoordinates = async (target) => {
+    setError("");
+    setSuccessMessage("");
+    setPickingCoordinatesTarget(target);
+    try {
+      const picked = await onRequestCoordinatePick?.();
+      if (!picked) return;
+
+      if (target === "pending") {
+        setPendingField(
+          "coordinatesText",
+          appendCoordinateLine(pendingDraft?.coordinatesText, picked),
+        );
+        return;
+      }
+
+      setEntryField(
+        "coordinatesText",
+        appendCoordinateLine(entryDraft?.coordinatesText, picked),
+      );
+    } finally {
+      setPickingCoordinatesTarget(null);
+    }
+  };
+
+  const renderEditorFields = (
+    draft,
+    setField,
+    options = {},
+  ) => (
+    <div className="admin-editor">
+      <label>
+        Name
+        <input
+          value={draft?.name ?? ""}
+          onChange={(event) => setField("name", event.target.value)}
+          placeholder="Story subject or place"
+        />
+      </label>
+      <label>
+        Role
+        <input
+          value={draft?.role ?? ""}
+          onChange={(event) => setField("role", event.target.value)}
+          placeholder="Educator, organizer, family figure, landmark..."
+        />
+      </label>
+      {/* <label>
+        Story type
+        <input
+          value={draft?.storyType ?? ""}
+          onChange={(event) => setField("storyType", event.target.value)}
+          placeholder="Community memory, burial record, landmark..."
+        />
+      </label>
+      <label>
+        Atlanta connection
+        <input
+          value={draft?.neighborhood ?? ""}
+          onChange={(event) => setField("neighborhood", event.target.value)}
+          placeholder="Neighborhood, institution, route, or place"
+        />
+      </label> */}
+      <label>
+        Burial location / grave note
+        <input
+          value={draft?.graveLocation ?? ""}
+          onChange={(event) => setField("graveLocation", event.target.value)}
+          placeholder="Section, lot, or navigation clue"
+        />
+      </label>
+      {/* <label>
+        Primary resource label
+        <input
+          value={draft?.sourceLabel ?? ""}
+          onChange={(event) => setField("sourceLabel", event.target.value)}
+          placeholder="Foundation biography, archive page, exhibit"
+        />
+      </label>
+      <label>
+        Primary resource URL
+        <input
+          value={draft?.sourceUrl ?? ""}
+          onChange={(event) => setField("sourceUrl", event.target.value)}
+          placeholder="https://"
+        />
+      </label> */}
+      <label>
+        Story summary
+        <textarea
+          rows={5}
+          value={draft?.summary ?? ""}
+          onChange={(event) => setField("summary", event.target.value)}
+          placeholder="Core story text shown in the public details drawer"
+        />
+      </label>
+      <label>
+        Coordinates
+        <textarea
+          rows={4}
+          value={draft?.coordinatesText ?? ""}
+          onChange={(event) => setField("coordinatesText", event.target.value)}
+          placeholder="33.7490, -84.3880"
+        />
+      </label>
+      <div className="admin-coordinate-actions">
+        <button
+          type="button"
+          className="pick-coord-btn"
+          onClick={() => handlePickCoordinates(options.coordinateTarget ?? "entry")}
+          disabled={pickingCoordinatesTarget === (options.coordinateTarget ?? "entry")}
+        >
+          {pickingCoordinatesTarget === (options.coordinateTarget ?? "entry")
+            ? "Click on the map to add a coordinate..."
+            : "Pick coordinate from map"}
+        </button>
+      </div>
+      <label>
+        Additional links
+        <textarea
+          rows={4}
+          value={draft?.externalLinksText ?? ""}
+          onChange={(event) => setField("externalLinksText", event.target.value)}
+          placeholder="Label | https://example.com"
+        />
+      </label>
+      <label>
+        {options.fileTextLabel ?? "Files"}
+        <textarea
+          rows={4}
+          value={draft?.uploadedFilesText ?? ""}
+          onChange={(event) => setField("uploadedFilesText", event.target.value)}
+          placeholder="One URL per line"
+          readOnly={options.readOnlyFileInput ?? false}
+        />
+      </label>
+    </div>
+  );
 
   return (
     <div className="entity-modal-backdrop" role="presentation" onClick={onClose}>
@@ -474,36 +665,68 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
           Close
         </button>
         <p className="eyebrow">Admin</p>
-        <h2>Waypoint Moderation</h2>
+        <h2>Story Management</h2>
         <div className="admin-panel-body">
           <p>
             Signed in as <strong>{userEmail ?? "Unknown user"}</strong>
           </p>
-          <div className="admin-tab-row">
+          <div className="admin-settings-card">
+            <div>
+              <p className="admin-settings-title">Community submissions</p>
+              <p className="admin-settings-copy">
+                Public story suggestions are currently{" "}
+                <strong>{allowCommunitySubmissions ? "enabled" : "paused"}</strong>.
+              </p>
+            </div>
             <button
               type="button"
-              className={activeTab === "pending" ? "admin-tab active" : "admin-tab"}
-              onClick={() => setActiveTab("pending")}
+              className={
+                allowCommunitySubmissions ? "admin-setting-toggle enabled" : "admin-setting-toggle"
+              }
+              onClick={handleCommunitySubmissionToggle}
+              disabled={isSavingCommunitySetting}
             >
-              Pending ({pendingItems.length})
+              {isSavingCommunitySetting
+                ? "Saving..."
+                : allowCommunitySubmissions
+                  ? "Pause submissions"
+                  : "Enable submissions"}
             </button>
+          </div>
+          <p className="admin-summary">
+            The public site is now centered on South-View-curated stories. Use this
+            panel to publish entries directly, enrich them with resource links, and
+            optionally moderate community submissions.
+          </p>
+          <div className="admin-tab-row">
             <button
               type="button"
               className={activeTab === "entries" ? "admin-tab active" : "admin-tab"}
               onClick={() => setActiveTab("entries")}
             >
-              Entries ({entries.length})
+              Published Stories ({entries.length})
             </button>
+            {allowCommunitySubmissions ? (
+              <button
+                type="button"
+                className={activeTab === "pending" ? "admin-tab active" : "admin-tab"}
+                onClick={() => setActiveTab("pending")}
+              >
+                Pending Suggestions ({pendingItems.length})
+              </button>
+            ) : (
+              <div className="admin-inline-note">Community submissions are paused.</div>
+            )}
           </div>
 
-          {isLoading ? <p>Loading admin data...</p> : null}
+          {isLoading ? <p>Loading story management data...</p> : null}
           {error ? <p className="form-error">{error}</p> : null}
           {successMessage ? <p className="admin-success">{successMessage}</p> : null}
 
-          {activeTab === "pending" ? (
+          {activeTab === "pending" && allowCommunitySubmissions ? (
             <div className="admin-grid">
-              <div className="admin-list" role="listbox" aria-label="Pending requests">
-                {pendingItems.length === 0 ? <p>No pending requests.</p> : null}
+              <div className="admin-list" role="listbox" aria-label="Pending stories">
+                {pendingItems.length === 0 ? <p>No pending community suggestions.</p> : null}
                 {pendingItems.map((item) => (
                   <button
                     key={item.id}
@@ -516,249 +739,175 @@ function AdminPanel({ isOpen, userEmail, onClose, onEntriesChanged }) {
                     onClick={() => setSelectedPendingId(item.id)}
                   >
                     <strong>{item.name}</strong>
-                    {item.role ? <span>{item.role}</span> : null}
+                    <span>
+                      {[item.role, item.storyType, item.neighborhood]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </span>
                   </button>
                 ))}
               </div>
 
-              {pendingDraft ? (
-                <div className="admin-editor">
-                  <label>
-                    Name
-                    <input
-                      type="text"
-                      value={pendingDraft.name}
-                      onChange={(event) => setPendingField("name", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Role
-                    <input
-                      type="text"
-                      value={pendingDraft.role}
-                      onChange={(event) => setPendingField("role", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Summary
-                    <textarea
-                      rows={4}
-                      value={pendingDraft.summary}
-                      onChange={(event) => setPendingField("summary", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Coordinates (one per line: lat, lng)
-                    <textarea
-                      rows={4}
-                      value={pendingDraft.coordinatesText}
-                      onChange={(event) =>
-                        setPendingField("coordinatesText", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label>
-                    Uploaded files (one per line)
-                    <textarea
-                      rows={3}
-                      value={pendingDraft.uploadedFilesText}
-                      onChange={(event) =>
-                        setPendingField("uploadedFilesText", event.target.value)
-                      }
-                    />
-                  </label>
+                {pendingDraft ? (
+                <div className="admin-editor-shell">
+                  {renderEditorFields(pendingDraft, setPendingField, {
+                    coordinateTarget: "pending",
+                  })}
                   <div className="admin-actions">
                     <button
                       type="button"
-                      className="submit-btn"
+                      className="admin-tab active"
                       onClick={handleSavePending}
-                      disabled={isSavingPending || isApproving || isDenying}
+                      disabled={isSavingPending}
                     >
-                      {isSavingPending ? "Saving..." : "Save Edits"}
+                      {isSavingPending ? "Saving..." : "Save Draft"}
                     </button>
                     <button
                       type="button"
                       className="admin-approve-btn"
                       onClick={handleApprovePending}
-                      disabled={isApproving || isSavingPending || isDenying}
+                      disabled={isApproving}
                     >
-                      {isApproving ? "Approving..." : "Approve"}
+                      {isApproving ? "Publishing..." : "Approve and Publish"}
                     </button>
                     <button
                       type="button"
                       className="admin-deny-btn"
                       onClick={handleDenyPending}
-                      disabled={isDenying || isSavingPending || isApproving}
+                      disabled={isDenying}
                     >
                       {isDenying ? "Denying..." : "Deny"}
                     </button>
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <p>Select a pending suggestion to review it.</p>
+              )}
             </div>
-          ) : (
+          ) : null}
+
+          {activeTab === "entries" ? (
             <div className="admin-grid">
-              <div className="admin-list" role="listbox" aria-label="Published entries">
-                <label className="admin-search-label" htmlFor="admin-entry-search">
-                  Search names
+              <div className="admin-list" role="listbox" aria-label="Published stories">
+                <label className="admin-search-label" htmlFor="admin-story-search">
+                  Search stories
                 </label>
                 <input
-                  id="admin-entry-search"
+                  id="admin-story-search"
                   className="admin-search-input"
-                  type="text"
                   value={entrySearchQuery}
                   onChange={(event) => setEntrySearchQuery(event.target.value)}
-                  placeholder="Search by name"
+                  placeholder="Search by name, type, place, or role"
                 />
-                {entries.length === 0 ? <p>No entries available.</p> : null}
-                {entries.length > 0 && filteredEntries.length === 0 ? (
-                  <p>No entries match that search.</p>
-                ) : null}
+                <button type="button" className="admin-tab" onClick={handleNewEntry}>
+                  + New SVC Story
+                </button>
+                {filteredEntries.length === 0 ? <p>No published stories match this search.</p> : null}
                 {filteredEntries.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     className={
-                      item.id === selectedEntryId
+                      item.id === selectedEntryId && entryMode === "edit"
                         ? "admin-list-item active"
                         : "admin-list-item"
                     }
-                    onClick={() => setSelectedEntryId(item.id)}
+                    onClick={() => handleSelectEntry(item.id)}
                   >
                     <strong>{item.name}</strong>
-                    {item.role ? <span>{item.role}</span> : null}
+                    <span>
+                      {[item.role, item.storyType, item.neighborhood]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </span>
                   </button>
                 ))}
               </div>
 
-              {entryDraft ? (
-                <div className="admin-editor">
-                  <label>
-                    Name
-                    <input
-                      type="text"
-                      value={entryDraft.name}
-                      onChange={(event) => setEntryField("name", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Role
-                    <input
-                      type="text"
-                      value={entryDraft.role}
-                      onChange={(event) => setEntryField("role", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Summary
-                    <textarea
-                      rows={4}
-                      value={entryDraft.summary}
-                      onChange={(event) => setEntryField("summary", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Coordinates (one per line: lat, lng)
-                    <textarea
-                      rows={4}
-                      value={entryDraft.coordinatesText}
-                      onChange={(event) => setEntryField("coordinatesText", event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Uploaded files (one per line)
-                    <textarea
-                      rows={3}
-                      value={entryDraft.uploadedFilesText}
-                      onChange={(event) =>
-                        setEntryField("uploadedFilesText", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label>
-                    Upload new files
-                    <input
-                      type="file"
-                      accept={SUPPORTED_UPLOAD_ACCEPT}
-                      multiple
-                      onChange={handleEntryFileChange}
-                    />
-                  </label>
-                  <p className="form-note">
-                    Add one or more new images or MP3 files to append to this entry.
-                  </p>
-                  {entryNewFiles.length ? (
-                    <ul className="selected-upload-list">
-                      {entryNewFiles.map((file, index) => (
-                        <li
-                          key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
-                          className="selected-upload-item"
+              <div className="admin-editor-shell">
+                <p className="admin-editor-heading">
+                  {entryMode === "create" ? "Create published story" : "Edit published story"}
+                </p>
+                {renderEditorFields(entryDraft, setEntryField, {
+                  coordinateTarget: "entry",
+                })}
+                <label className="admin-upload-label">
+                  Upload new files
+                  <input
+                    type="file"
+                    accept={SUPPORTED_UPLOAD_ACCEPT}
+                    multiple
+                    onChange={handleEntryFileChange}
+                  />
+                </label>
+                {entryNewFiles.length ? (
+                  <ul className="selected-upload-list">
+                    {entryNewFiles.map((file, index) => (
+                      <li key={`${file.name}-${index}`}>
+                        <span>{file.name}</span>
+                        <button
+                          type="button"
+                          className="remove-coordinate-btn"
+                          onClick={() => handleRemoveEntryFile(index)}
                         >
-                          <span>{file.name}</span>
-                          <button
-                            type="button"
-                            className="remove-upload-btn"
-                            onClick={() => handleRemoveEntryFile(index)}
-                          >
-                            Remove
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <div className="admin-actions">
-                    <button
-                      type="button"
-                      className="submit-btn"
-                      onClick={handleSaveEntry}
-                      disabled={isSavingEntry || isDeletingEntry}
-                    >
-                      {isSavingEntry ? "Saving..." : "Save Entry"}
-                    </button>
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <div className="admin-actions">
+                  <button
+                    type="button"
+                    className="admin-approve-btn"
+                    onClick={handleSaveEntry}
+                    disabled={isSavingEntry}
+                  >
+                    {isSavingEntry
+                      ? entryMode === "create"
+                        ? "Publishing..."
+                        : "Saving..."
+                      : entryMode === "create"
+                        ? "Publish Story"
+                        : "Save Changes"}
+                  </button>
+                  {entryMode === "edit" && entryDraft.id ? (
                     <button
                       type="button"
                       className="admin-delete-btn"
-                      onClick={handleOpenDeleteConfirm}
-                      disabled={isSavingEntry || isDeletingEntry}
+                      onClick={() => setIsDeleteConfirmOpen(true)}
                     >
-                      Delete Entry
+                      Delete Story
                     </button>
-                  </div>
-                  {isDeleteConfirmOpen ? (
-                    <div
-                      className="admin-delete-confirm"
-                      role="alertdialog"
-                      aria-modal="true"
-                      aria-label="Confirm permanent deletion"
-                    >
-                      <p>
-                        Delete <strong>{entryDraft.name || "this entry"}</strong> permanently?
-                      </p>
-                      <p>This action is final and cannot be undone.</p>
-                      <div className="admin-actions">
-                        <button
-                          type="button"
-                          className="admin-delete-btn"
-                          onClick={handleDeleteEntry}
-                          disabled={isDeletingEntry}
-                        >
-                          {isDeletingEntry ? "Deleting..." : "Yes, delete permanently"}
-                        </button>
-                        <button
-                          type="button"
-                          className="submit-btn"
-                          onClick={handleCancelDelete}
-                          disabled={isDeletingEntry}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
                   ) : null}
                 </div>
-              ) : null}
+                {isDeleteConfirmOpen ? (
+                  <div className="admin-delete-confirm">
+                    <p>
+                      Delete <strong>{entryDraft.name || "this story"}</strong> permanently?
+                    </p>
+                    <div className="admin-actions">
+                      <button
+                        type="button"
+                        className="admin-delete-btn"
+                        onClick={handleDeleteEntry}
+                        disabled={isDeletingEntry}
+                      >
+                        {isDeletingEntry ? "Deleting..." : "Confirm Delete"}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-tab"
+                        onClick={() => setIsDeleteConfirmOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
     </div>

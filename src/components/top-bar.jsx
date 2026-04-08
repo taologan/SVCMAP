@@ -1,3 +1,5 @@
+import { APP_CONFIG } from "../constants";
+
 function TopBar({
   topBarRef,
   isSigningIn,
@@ -13,13 +15,23 @@ function TopBar({
   return (
     <header ref={topBarRef} className="top-bar">
       <div className="title-wrap">
-        <p className="eyebrow">South-View Cemetery</p>
-        <h1>Atlanta Community Story Map</h1>
+        <div className="brand-placeholder">
+          <img src="/svc_logo.png" alt="South View" className="brand-logo" />
+        </div>
         <p className="subtitle">
-          Firestore-powered story map with heatmap and zoom-based markers.
+          A memorial-style map for exploring burial stories, Atlanta landmarks, and
+          foundation resources in the South-View ecosystem.
         </p>
+        <div className="foundation-link-row">
+          {APP_CONFIG.foundationLinks.map((link) => (
+            <a key={link.url} href={link.url} target="_blank" rel="noreferrer">
+              {link.label}
+            </a>
+          ))}
+        </div>
       </div>
       <div className="header-controls">
+        {/* <p className="nav-caption">Foundation Links</p> */}
         <div className="admin-actions">
           <button
             type="button"
@@ -48,16 +60,25 @@ function TopBar({
             </button>
           ) : null}
         </div>
-        <button type="button" className="add-waypoint-btn" onClick={onOpenAddModal}>
-          + Add Connection
-        </button>
-        <button
-          type="button"
-          className="add-waypoint-btn secondary"
-          onClick={onOpenStatusLookupModal}
-        >
-          Check Request Status
-        </button>
+        {onOpenAddModal ? (
+          <button type="button" className="add-waypoint-btn" onClick={onOpenAddModal}>
+            + Suggest a Story
+          </button>
+        ) : (
+          <p className="header-note">
+            Community submissions are currently paused while South-View curates stories
+            directly.
+          </p>
+        )}
+        {onOpenStatusLookupModal ? (
+          <button
+            type="button"
+            className="add-waypoint-btn secondary"
+            onClick={onOpenStatusLookupModal}
+          >
+            Check Request Status
+          </button>
+        ) : null}
       </div>
     </header>
   );

@@ -37,6 +37,12 @@ function getHorizontalOverlayPadding(map) {
   }
 
   if (drawer instanceof HTMLElement) {
+    if (drawer.classList.contains("fullscreen")) {
+      return {
+        left: leftPadding + labelBuffer,
+        right: rightPadding + labelBuffer,
+      };
+    }
     const drawerStyles = window.getComputedStyle(drawer);
     const drawerWidth = drawer.getBoundingClientRect().width;
     const isSideDocked = drawerStyles.top !== "auto";
