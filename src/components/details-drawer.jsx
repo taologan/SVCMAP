@@ -194,64 +194,55 @@ function DetailsDrawer({ activeEntity, onClose }) {
 
           <div className="story-modal-content">
             <div className="story-listing-main">
-              <div className="story-section">
-                <p className="eyebrow">Gallery</p>
-                <h3>Photos</h3>
-                <div className="story-gallery in-body">
-                  <div className="story-gallery-main in-body">
-                    {activeImage ? (
-                      <>
-                        <img
-                          src={activeImage}
-                          alt={`${activeEntity.name} gallery image ${safeImageIndex + 1}`}
-                          className="story-gallery-hero"
-                        />
-                        {hasMultipleImages ? (
-                          <div className="story-gallery-controls">
-                            <button
-                              type="button"
-                              className="story-gallery-nav"
-                              onClick={() =>
-                                setSelectedImageRef(
-                                  mediaGroups.images[
-                                    (safeImageIndex - 1 + mediaGroups.images.length) %
-                                      mediaGroups.images.length
-                                  ],
-                                )
-                              }
-                            >
-                              Prev
-                            </button>
-                            <span className="story-gallery-count">
-                              {safeImageIndex + 1} / {mediaGroups.images.length}
-                            </span>
-                            <button
-                              type="button"
-                              className="story-gallery-nav"
-                              onClick={() =>
-                                setSelectedImageRef(
-                                  mediaGroups.images[
-                                    (safeImageIndex + 1) % mediaGroups.images.length
-                                  ],
-                                )
-                              }
-                            >
-                              Next
-                            </button>
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <div className="story-gallery-placeholder" />
-                    )}
+              {mediaGroups.images.length ? (
+                <div className="story-section">
+                  <p className="eyebrow">Gallery</p>
+                  <h3>Photos</h3>
+                  <div className="story-gallery in-body">
+                    <div className="story-gallery-main in-body">
+                      <img
+                        src={activeImage}
+                        alt={`${activeEntity.name} gallery image ${safeImageIndex + 1}`}
+                        className="story-gallery-hero"
+                      />
+                      {hasMultipleImages ? (
+                        <div className="story-gallery-controls">
+                          <button
+                            type="button"
+                            className="story-gallery-nav"
+                            onClick={() =>
+                              setSelectedImageRef(
+                                mediaGroups.images[
+                                  (safeImageIndex - 1 + mediaGroups.images.length) %
+                                    mediaGroups.images.length
+                                ],
+                              )
+                            }
+                          >
+                            Prev
+                          </button>
+                          <span className="story-gallery-count">
+                            {safeImageIndex + 1} / {mediaGroups.images.length}
+                          </span>
+                          <button
+                            type="button"
+                            className="story-gallery-nav"
+                            onClick={() =>
+                              setSelectedImageRef(
+                                mediaGroups.images[
+                                  (safeImageIndex + 1) % mediaGroups.images.length
+                                ],
+                              )
+                            }
+                          >
+                            Next
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                  {mediaGroups.images.length ? null : (
-                    <p className="story-gallery-note">
-                      Images will appear here once the upload pipeline is connected.
-                    </p>
-                  )}
                 </div>
-              </div>
+              ) : null}
 
               <div className="story-section">
                 <p className="eyebrow">Story</p>
