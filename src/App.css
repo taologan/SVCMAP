@@ -317,6 +317,24 @@
     gap: 0.3rem;
 }
 
+.sidebar-global-toggle {
+    margin: 0 0 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #5d5d5d;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.sidebar-global-toggle input {
+    margin: 0;
+}
+
+.sidebar-global-toggle span {
+    font: inherit;
+}
+
 .sidebar-filter-field {
     font-size: 0.78rem;
     color: #5d5d5d;

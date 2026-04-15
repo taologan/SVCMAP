@@ -137,8 +137,6 @@ export function useLeafletMap({
     if (!mapContainerRef.current || mapRef.current) return;
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
-      minZoom: 8,
-      maxZoom: 18,
       zoomSnap: 0,
       scrollWheelZoom: false,
       smoothWheelZoom: true,
@@ -170,7 +168,7 @@ export function useLeafletMap({
       if (heatRedrawRafId !== null) return;
       heatRedrawRafId = requestAnimationFrame(() => {
         heatRedrawRafId = null;
-        if (heatLayerRef.current) heatLayerRef.current.redraw();
+        if (heatLayerRef.current?._map) heatLayerRef.current.redraw();
       });
     };
     const handleHeatRedrawOnZoom = () => scheduleHeatRedraw();
@@ -178,7 +176,7 @@ export function useLeafletMap({
       scheduleHeatRedraw({ requireAutoNavigation: true });
     const finalizeHeatAfterMovement = () => {
       isAutoNavigatingRef.current = false;
-      if (heatLayerRef.current) heatLayerRef.current.redraw();
+      if (heatLayerRef.current?._map) heatLayerRef.current.redraw();
     };
 
     map.on("zoomend", syncViewportState);

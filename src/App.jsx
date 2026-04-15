@@ -245,6 +245,7 @@ function App() {
           onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
           entitiesStatus={entitiesStatus}
           entitiesError={entitiesError}
+          allEntities={entities}
           visibleEntities={visibleEntities}
           activeEntity={activeEntity}
           onFocusEntity={focusEntity}
