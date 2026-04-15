@@ -482,8 +482,10 @@
 .story-gallery-hero {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center center;
     display: block;
+    background: #ece5df;
 }
 
 .story-gallery-placeholder {
@@ -502,12 +504,12 @@
 
 .story-gallery-main.in-body {
     position: relative;
-    height: min(28rem, 46vh);
+    height: min(30rem, 48vh);
     min-height: 16rem;
     border: 1px solid rgba(17, 17, 17, 0.08);
     border-radius: 0.2rem;
     overflow: hidden;
-    background: linear-gradient(180deg, #ddd4ce, #cfc2bc);
+    background: linear-gradient(180deg, #ece5df, #ddd4ce);
 }
 
 .story-gallery-controls {
@@ -684,15 +686,21 @@
 }
 
 .admin-panel {
-    width: min(620px, 100%);
-    max-height: min(90vh, calc(100vh - 2rem));
+    width: calc(100vw - 1.5rem);
+    height: calc(100vh - 1.5rem);
+    max-height: none;
+    display: flex;
+    flex-direction: column;
 }
 
 .admin-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
     border: 1px solid rgba(17, 17, 17, 0.08);
     border-radius: 0.2rem;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 245, 247, 0.98));
-    padding: 0.8rem;
+    padding: 1rem;
 }
 
 .admin-summary {
@@ -771,12 +779,12 @@
 
 .admin-grid {
     display: grid;
-    grid-template-columns: 1fr 1.7fr;
-    gap: 0.75rem;
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+    gap: 1rem;
 }
 
 .admin-list {
-    max-height: 55vh;
+    max-height: none;
     overflow-y: auto;
     border: 1px solid rgba(17, 17, 17, 0.08);
     border-radius: 0.2rem;
@@ -855,10 +863,16 @@
 .admin-editor textarea {
     border: 1px solid rgba(17, 17, 17, 0.12);
     border-radius: 0.2rem;
-    padding: 0.5rem;
+    padding: 0.7rem 0.8rem;
     background: #fff;
     color: #2a2a2a;
     font: inherit;
+}
+
+.admin-editor textarea {
+    min-height: 8rem;
+    resize: vertical;
+    line-height: 1.55;
 }
 
 .admin-upload-label {
