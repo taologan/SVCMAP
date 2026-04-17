@@ -155,6 +155,7 @@ const EMPTY_ENTRY_DRAFT = makeDraft();
 
 function AdminPanel({
   isOpen,
+  isHidden = false,
   userEmail,
   onClose,
   onEntriesChanged,
@@ -182,7 +183,6 @@ function AdminPanel({
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isSavingCommunitySetting, setIsSavingCommunitySetting] = useState(false);
   const [pickingCoordinatesTarget, setPickingCoordinatesTarget] = useState(null);
-  const isMapPickActive = Boolean(pickingCoordinatesTarget);
 
   const selectedPending = useMemo(
     () => pendingItems.find((item) => item.id === selectedPendingId) ?? null,
@@ -273,7 +273,6 @@ function AdminPanel({
   }, [entryMode, selectedEntry]);
 
   if (!isOpen) return null;
-  if (isMapPickActive) return null;
 
   const setPendingField = (key, value) => {
     setPendingDraft((current) => (current ? { ...current, [key]: value } : current));
@@ -656,18 +655,13 @@ function AdminPanel({
 
   return (
     <div
-      className={
-        isMapPickActive
-          ? "entity-modal-backdrop admin-map-pick-active"
-          : "entity-modal-backdrop"
-      }
+      className="entity-modal-backdrop"
       role="presentation"
       onClick={onClose}
+      style={isHidden ? { display: "none" } : undefined}
     >
       <section
-        className={
-          isMapPickActive ? "entity-modal admin-panel admin-map-pick-active" : "entity-modal admin-panel"
-        }
+        className="entity-modal admin-panel"
         role="dialog"
         aria-modal="true"
         aria-label="Admin panel"

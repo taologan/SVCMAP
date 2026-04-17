@@ -21,9 +21,12 @@ const USER_TUTORIAL_STORAGE_KEY = "svcmap-user-tutorial-complete";
 function App() {
   const mapContainerRef = useRef(null);
   const topBarRef = useRef(null);
+  const restoreAdminPanelAfterCoordinatePickRef = useRef(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeEntity, setActiveEntity] = useState(null);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isAdminPanelHiddenForCoordinatePick, setIsAdminPanelHiddenForCoordinatePick] =
+    useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [submissionReceipt, setSubmissionReceipt] = useState(null);
   const [isSubmissionSuccessOpen, setIsSubmissionSuccessOpen] = useState(false);
@@ -54,15 +57,16 @@ function App() {
 
   useEffect(() => {
     // Keep panel state aligned with auth transitions.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsAdminPanelOpen(false);
   }, [authUser]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
+        restoreAdminPanelAfterCoordinatePickRef.current = false;
         setActiveEntity(null);
         setIsAddModalOpen(false);
+        setIsAdminPanelHiddenForCoordinatePick(false);
         setIsSubmissionSuccessOpen(false);
         setIsStatusLookupOpen(false);
         setIsAdminPanelOpen(false);
@@ -79,7 +83,6 @@ function App() {
     const entityStillExists = entities.some(
       (entity) => entity.id === activeEntity.id,
     );
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!entityStillExists) setActiveEntity(null);
   }, [activeEntity, entities]);
 
@@ -117,6 +120,22 @@ function App() {
       await signIn();
     } catch (error) {
       console.error("Google sign-in failed:", error);
+    }
+  };
+
+  const handleAdminCoordinatePick = async () => {
+    restoreAdminPanelAfterCoordinatePickRef.current = true;
+    setIsAdminPanelHiddenForCoordinatePick(true);
+
+    try {
+      return await requestCoordinatePick();
+    } finally {
+      const shouldRestore = restoreAdminPanelAfterCoordinatePickRef.current;
+      restoreAdminPanelAfterCoordinatePickRef.current = false;
+      setIsAdminPanelHiddenForCoordinatePick(false);
+      if (shouldRestore) {
+        setIsAdminPanelOpen(true);
+      }
     }
   };
 
@@ -285,11 +304,12 @@ function App() {
       ) : null}
       <AdminPanel
         isOpen={isAdmin && isAdminPanelOpen}
+        isHidden={isAdminPanelHiddenForCoordinatePick}
         userEmail={authUser?.email}
         onClose={() => setIsAdminPanelOpen(false)}
         onEntriesChanged={reloadEntities}
         allowCommunitySubmissions={allowCommunitySubmissions}
-        onRequestCoordinatePick={requestCoordinatePick}
+        onRequestCoordinatePick={handleAdminCoordinatePick}
       />
       {isUserTutorialOpen ? (
         <UserTutorial
