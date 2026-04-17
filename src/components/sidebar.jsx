@@ -1,5 +1,33 @@
 import { useMemo, useState } from "react";
 
+const ROLE_CATEGORY_OPTIONS = [
+  { value: "actor", label: "Actor", matcher: /\bactor\b/i },
+  { value: "artist", label: "Artist", matcher: /\bartist\b/i },
+  {
+    value: "civil-rights-leader",
+    label: "Civil Rights Leader",
+    matcher: /\bcivil rights leader\b/i,
+  },
+  { value: "educator", label: "Educator", matcher: /\beducator\b/i },
+  { value: "entrepreneur", label: "Entrepreneur", matcher: /\bentrepreneur\b/i },
+  {
+    value: "religious-leader",
+    label: "Religious Leader",
+    matcher: /\breligious leader\b/i,
+  },
+  {
+    value: "us-congressman",
+    label: "US Congressman",
+    matcher: /\bu\.?s\.?\s+congressman\b/i,
+  },
+];
+
+function roleMatchesCategory(roleText = "", categoryValue) {
+  const category = ROLE_CATEGORY_OPTIONS.find((option) => option.value === categoryValue);
+  if (!category) return true;
+  return category.matcher.test(roleText);
+}
+
 function Sidebar({
   isSidebarCollapsed,
   onToggleCollapse,
@@ -14,7 +42,8 @@ function Sidebar({
   const [sortMode, setSortMode] = useState("map");
   const [nameFilter, setNameFilter] = useState("");
   const [keywordFilter, setKeywordFilter] = useState("");
-  const [isGlobalSearch, setIsGlobalSearch] = useState(false);
+  const [isGlobalSearch, setIsGlobalSearch] = useState(true);
+  const [roleCategoryFilter, setRoleCategoryFilter] = useState("all");
 
   const visibleEntitiesById = useMemo(
     () => new Map(visibleEntities.map((entry) => [entry.entity.id, entry])),
@@ -37,6 +66,7 @@ function Sidebar({
   const filteredEntities = useMemo(() => {
     const normalizedNameFilter = nameFilter.trim().toLowerCase();
     const normalizedKeywordFilter = keywordFilter.trim().toLowerCase();
+    const normalizedRoleCategory = roleCategoryFilter.trim().toLowerCase();
 
     return searchableEntities.filter((entry) => {
       const name = (entry.entity.name ?? "").toLowerCase();
@@ -50,10 +80,13 @@ function Sidebar({
         name.includes(normalizedKeywordFilter) ||
         role.includes(normalizedKeywordFilter) ||
         summary.includes(normalizedKeywordFilter);
+      const matchesRoleCategory =
+        normalizedRoleCategory === "all" ||
+        roleMatchesCategory(entry.entity.role ?? "", normalizedRoleCategory);
 
-      return matchesName && matchesKeyword;
+      return matchesName && matchesKeyword && matchesRoleCategory;
     });
-  }, [keywordFilter, nameFilter, searchableEntities]);
+  }, [keywordFilter, nameFilter, roleCategoryFilter, searchableEntities]);
 
   const sortedEntities = useMemo(() => {
     if (sortMode === "map") return filteredEntities;
@@ -153,6 +186,22 @@ function Sidebar({
             onChange={(event) => setKeywordFilter(event.target.value)}
             placeholder="Filter by role or story"
           />
+          <label className="sidebar-filter-field" htmlFor="sidebar-role-category">
+            Role category
+          </label>
+          <select
+            id="sidebar-role-category"
+            className="sidebar-filter-input"
+            value={roleCategoryFilter}
+            onChange={(event) => setRoleCategoryFilter(event.target.value)}
+          >
+            <option value="all">All roles</option>
+            {ROLE_CATEGORY_OPTIONS.map((roleCategory) => (
+              <option key={roleCategory.value} value={roleCategory.value}>
+                {roleCategory.label}
+              </option>
+            ))}
+          </select>
         </div>
         {entitiesStatus === "loading" ? (
           <p className="sidebar-empty">Loading waypoints from Firestore...</p>
