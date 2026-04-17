@@ -39,10 +39,6 @@ export const APP_CONFIG = {
   defaultAllowCommunitySubmissions: false,
   foundationLinks: [
     {
-      label: "South-View Foundation",
-      url: "https://www.southviewfoundation.org/",
-    },
-    {
       label: "Support the Foundation",
       url: "https://givebutter.com/southview-cemetary-qtdsw7",
     },
@@ -50,10 +46,6 @@ export const APP_CONFIG = {
       label: "Instagram Storytelling",
       url: "https://www.instagram.com/cslmc475/",
     },
-    // {
-    //   label: "TikTok Storytelling",
-    //   url: "https://www.tiktok.com/",
-    // },
   ],
 };
 

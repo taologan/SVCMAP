@@ -16,7 +16,7 @@ function TopBar({
     <header ref={topBarRef} className="top-bar">
       <div className="title-wrap">
         <div className="brand-placeholder">
-          <img src="/svc_logo.png" alt="South View" className="brand-logo" />
+          <img src="/svc_foundation.avif" alt="South View" className="brand-logo" />
         </div>
         <p className="subtitle">
           A memorial-style map for exploring burial stories, Atlanta landmarks, and

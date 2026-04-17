@@ -705,11 +705,6 @@ function AdminPanel({
                   : "Enable submissions"}
             </button>
           </div>
-          <p className="admin-summary">
-            The public site is now centered on South-View-curated stories. Use this
-            panel to publish entries directly, enrich them with resource links, and
-            optionally moderate community submissions.
-          </p>
           <div className="admin-tab-row">
             <button
               type="button"
