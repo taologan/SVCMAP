@@ -1,36 +1,71 @@
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import { APP_CONFIG } from "../../constants";
+import { APP_CONFIG, normalizeAllowedRoles } from "../../constants";
 import { db } from "./client";
 
 const APP_SETTINGS_COLLECTION = "settings";
-const APP_SETTINGS_DOC_ID = "publicExperience";
+const PUBLIC_EXPERIENCE_DOC_ID = "publicExperience";
+const ALLOWED_ROLES_DOC_ID = "allowedRoles";
 
-function normalizeAppSettings(data = {}) {
+function normalizeAppSettings(settingsByDocId = {}) {
+  const publicExperienceData = settingsByDocId[PUBLIC_EXPERIENCE_DOC_ID] ?? {};
+  const allowedRolesData = settingsByDocId[ALLOWED_ROLES_DOC_ID] ?? {};
+  const allowedRoles = normalizeAllowedRoles(allowedRolesData.roles ?? []);
   return {
     allowCommunitySubmissions:
-      typeof data.allowCommunitySubmissions === "boolean"
-        ? data.allowCommunitySubmissions
+      typeof publicExperienceData.allowCommunitySubmissions === "boolean"
+        ? publicExperienceData.allowCommunitySubmissions
         : APP_CONFIG.defaultAllowCommunitySubmissions,
+    allowedRoles,
   };
 }
 
-function getAppSettingsRef() {
-  return doc(db, APP_SETTINGS_COLLECTION, APP_SETTINGS_DOC_ID);
+function getPublicExperienceSettingsRef() {
+  return doc(db, APP_SETTINGS_COLLECTION, PUBLIC_EXPERIENCE_DOC_ID);
+}
+
+function getAllowedRolesSettingsRef() {
+  return doc(db, APP_SETTINGS_COLLECTION, ALLOWED_ROLES_DOC_ID);
 }
 
 export function subscribeToAppSettings({ onChange, onError }) {
-  return onSnapshot(
-    getAppSettingsRef(),
+  let publicExperienceData = {};
+  let allowedRolesData = {};
+
+  const emitSettings = () => {
+    onChange?.(
+      normalizeAppSettings({
+        [PUBLIC_EXPERIENCE_DOC_ID]: publicExperienceData,
+        [ALLOWED_ROLES_DOC_ID]: allowedRolesData,
+      }),
+    );
+  };
+
+  const unsubscribePublicExperience = onSnapshot(
+    getPublicExperienceSettingsRef(),
     (snapshot) => {
-      const nextSettings = snapshot.exists()
-        ? normalizeAppSettings(snapshot.data())
-        : normalizeAppSettings();
-      onChange?.(nextSettings);
+      publicExperienceData = snapshot.exists() ? snapshot.data() : {};
+      emitSettings();
     },
     (error) => {
       onError?.(error);
     },
   );
+
+  const unsubscribeAllowedRoles = onSnapshot(
+    getAllowedRolesSettingsRef(),
+    (snapshot) => {
+      allowedRolesData = snapshot.exists() ? snapshot.data() : {};
+      emitSettings();
+    },
+    (error) => {
+      onError?.(error);
+    },
+  );
+
+  return () => {
+    unsubscribePublicExperience();
+    unsubscribeAllowedRoles();
+  };
 }
 
 export async function updateCommunitySubmissionsSetting({
@@ -38,7 +73,7 @@ export async function updateCommunitySubmissionsSetting({
   updatedBy = null,
 }) {
   await setDoc(
-    getAppSettingsRef(),
+    getPublicExperienceSettingsRef(),
     {
       allowCommunitySubmissions,
       updatedBy,
@@ -48,4 +83,19 @@ export async function updateCommunitySubmissionsSetting({
   );
 
   return { allowCommunitySubmissions };
+}
+
+export async function updateAllowedRolesSetting({ allowedRoles, updatedBy = null }) {
+  const normalizedRoles = normalizeAllowedRoles(allowedRoles);
+  await setDoc(
+    getAllowedRolesSettingsRef(),
+    {
+      roles: normalizedRoles,
+      updatedBy,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  return { allowedRoles: normalizedRoles };
 }

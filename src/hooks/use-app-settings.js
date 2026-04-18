@@ -5,6 +5,7 @@ import { subscribeToAppSettings } from "../firebase";
 export function useAppSettings() {
   const [appSettings, setAppSettings] = useState({
     allowCommunitySubmissions: APP_CONFIG.defaultAllowCommunitySubmissions,
+    allowedRoles: [],
   });
   const [settingsStatus, setSettingsStatus] = useState("loading");
   const [settingsError, setSettingsError] = useState("");
@@ -29,6 +30,7 @@ export function useAppSettings() {
   return {
     appSettings,
     allowCommunitySubmissions: appSettings.allowCommunitySubmissions,
+    allowedRoles: appSettings.allowedRoles,
     settingsStatus,
     settingsError,
   };

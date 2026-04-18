@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   serverTimestamp,
+  setDoc,
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
@@ -34,7 +35,7 @@ export async function getPending() {
 export async function addPending({
   name,
   summary,
-  role = "",
+  roles = [],
   storyType = "",
   neighborhood = "",
   graveLocation = "",
@@ -57,7 +58,7 @@ export async function addPending({
   const sanitized = sanitizePendingPayload({
     name,
     summary,
-    role,
+    roles,
     storyType,
     neighborhood,
     graveLocation,
@@ -101,7 +102,7 @@ export async function updatePending({
   pendingId,
   name,
   summary,
-  role,
+  roles,
   storyType,
   neighborhood,
   graveLocation,
@@ -112,10 +113,11 @@ export async function updatePending({
   uploadedFiles,
 }) {
   const pendingDocRef = doc(db, "pending", pendingId);
+  const requestStatusRef = doc(db, "requestStatuses", pendingId);
   const sanitized = sanitizePendingPayload({
     name,
     summary,
-    role,
+    roles,
     storyType,
     neighborhood,
     graveLocation,
@@ -128,11 +130,22 @@ export async function updatePending({
 
   await updateDoc(pendingDocRef, {
     ...sanitized,
+    role: deleteField(),
     type: deleteField(),
     source: deleteField(),
     coordinates: toFirestoreCoordinates(sanitized.coordinates),
     updatedAt: serverTimestamp(),
   });
+  await setDoc(
+    requestStatusRef,
+    {
+      id: pendingId,
+      status: "pending",
+      name: sanitized.name,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 
   return { id: pendingId, ...sanitized };
 }

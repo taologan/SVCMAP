@@ -39,7 +39,7 @@ function App() {
 
   const { isSigningIn, isSigningOut, authUser, isAdmin, isCheckingAdmin, signIn, signOut } =
     useAuth();
-  const { allowCommunitySubmissions } = useAppSettings();
+  const { allowCommunitySubmissions, allowedRoles } = useAppSettings();
   const { entities, entitiesStatus, entitiesError, reloadEntities } =
     useMapEntities();
   const {
@@ -141,7 +141,7 @@ function App() {
 
   const handleSubmitWaypoint = async ({
     name,
-    role,
+    roles,
     storyType,
     neighborhood,
     graveLocation,
@@ -157,7 +157,7 @@ function App() {
     try {
       const pendingRequest = await addPending({
         name,
-        role,
+        roles,
         storyType,
         neighborhood,
         graveLocation,
@@ -266,6 +266,7 @@ function App() {
           entitiesError={entitiesError}
           allEntities={entities}
           visibleEntities={visibleEntities}
+          allowedRoles={allowedRoles}
           activeEntity={activeEntity}
           onFocusEntity={focusEntity}
           onClearActiveEntity={() => setActiveEntity(null)}
@@ -289,6 +290,7 @@ function App() {
             onSubmitWaypoint={handleSubmitWaypoint}
             onSubmissionSuccess={handleSubmissionSuccess}
             onRequestCoordinatePick={requestCoordinatePick}
+            allowedRoles={allowedRoles}
           />
           <SubmissionSuccessModal
             isOpen={isSubmissionSuccessOpen}
@@ -310,6 +312,7 @@ function App() {
         onEntriesChanged={reloadEntities}
         allowCommunitySubmissions={allowCommunitySubmissions}
         onRequestCoordinatePick={handleAdminCoordinatePick}
+        allowedRoles={allowedRoles}
       />
       {isUserTutorialOpen ? (
         <UserTutorial

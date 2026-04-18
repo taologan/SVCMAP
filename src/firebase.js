@@ -13,6 +13,7 @@ export {
 } from "./services/firebase/entries";
 export {
   subscribeToAppSettings,
+  updateAllowedRolesSetting,
   updateCommunitySubmissionsSetting,
 } from "./services/firebase/settings";
 export {

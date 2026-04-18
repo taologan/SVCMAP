@@ -45,6 +45,43 @@ function normalizeCoordinate(value) {
   return null;
 }
 
+function sortRolesAlphabetically(roles = []) {
+  return [...roles].sort((leftRole, rightRole) =>
+    leftRole.localeCompare(rightRole, undefined, { sensitivity: "base" }),
+  );
+}
+
+function normalizeRolesArray(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return sortRolesAlphabetically(
+    value
+    .map((roleValue) => normalizeOptionalText(roleValue))
+    .filter((roleText) => {
+      if (!roleText) return false;
+      const normalizedRole = roleText.toLowerCase();
+      if (seen.has(normalizedRole)) return false;
+      seen.add(normalizedRole);
+      return true;
+    }),
+  );
+}
+
+function normalizeRolesWithFallback(data = {}) {
+  const roles = normalizeRolesArray(data.roles);
+  if (roles.length) return roles;
+  const fallbackRole = normalizeOptionalText(data.role ?? data.dates ?? "");
+  if (!fallbackRole) return [];
+  const splitFallbackRoles = normalizeRolesArray(
+    fallbackRole.split(",").map((rolePart) => rolePart.trim()),
+  );
+  return splitFallbackRoles.length ? splitFallbackRoles : [fallbackRole];
+}
+
+function rolesToText(roles = []) {
+  return sortRolesAlphabetically(roles).join(", ");
+}
+
 export function normalizeCoordinates(value) {
   if (!Array.isArray(value)) return [];
   return value.map((coordinate) => normalizeCoordinate(coordinate)).filter(Boolean);
@@ -72,12 +109,14 @@ export function normalizeEntityDoc(entityDoc) {
   const data = entityDoc.data();
   const coordinates = normalizeCoordinates(data.coordinates);
   if (!coordinates.length) return null;
+  const roles = normalizeRolesWithFallback(data);
 
   return {
     id: data.id ?? entityDoc.id,
     name: data.name ?? "Unknown",
     summary: data.summary ?? "",
-    role: data.role ?? data.dates ?? "",
+    role: rolesToText(roles),
+    roles,
     storyType: normalizeOptionalText(data.storyType),
     neighborhood: normalizeOptionalText(data.neighborhood),
     graveLocation: normalizeOptionalText(data.graveLocation),
@@ -91,11 +130,13 @@ export function normalizeEntityDoc(entityDoc) {
 
 export function normalizeAdminEntityDoc(entityDoc) {
   const data = entityDoc.data();
+  const roles = normalizeRolesWithFallback(data);
   return {
     id: data.id ?? entityDoc.id,
     name: data.name ?? "Unknown",
     summary: data.summary ?? "",
-    role: data.role ?? data.dates ?? "",
+    role: rolesToText(roles),
+    roles,
     storyType: normalizeOptionalText(data.storyType),
     neighborhood: normalizeOptionalText(data.neighborhood),
     graveLocation: normalizeOptionalText(data.graveLocation),
@@ -112,10 +153,11 @@ export function toFirestoreCoordinates(coordinates) {
 }
 
 export function sanitizePendingPayload(payload) {
+  const roles = normalizeRolesWithFallback(payload);
   return {
     name: payload.name ?? "Unknown",
     summary: payload.summary ?? "",
-    role: payload.role ?? payload.dates ?? "",
+    roles,
     storyType: normalizeOptionalText(payload.storyType),
     neighborhood: normalizeOptionalText(payload.neighborhood),
     graveLocation: normalizeOptionalText(payload.graveLocation),
@@ -128,10 +170,11 @@ export function sanitizePendingPayload(payload) {
 }
 
 export function sanitizeEntryPayload(payload) {
+  const roles = normalizeRolesWithFallback(payload);
   return {
     name: payload.name ?? "Unknown",
     summary: payload.summary ?? "",
-    role: payload.role ?? payload.dates ?? "",
+    roles,
     storyType: normalizeOptionalText(payload.storyType),
     neighborhood: normalizeOptionalText(payload.neighborhood),
     graveLocation: normalizeOptionalText(payload.graveLocation),

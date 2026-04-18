@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { EMPTY_FORM } from "../constants";
+import { buildRoleOptions, EMPTY_FORM, normalizeAllowedRoles } from "../constants";
 import {
   SUPPORTED_UPLOAD_ACCEPT,
   isSupportedUploadFile,
@@ -12,6 +12,7 @@ function AddWaypointModal({
   onSubmitWaypoint,
   onSubmissionSuccess,
   onRequestCoordinatePick,
+  allowedRoles = [],
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -29,10 +30,21 @@ function AddWaypointModal({
   }, [isOpen]);
 
   if (!isOpen || isTemporarilyHidden) return null;
+  const roleOptions = buildRoleOptions(allowedRoles);
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleRolesChange = (event) => {
+    const selectedRoles = normalizeAllowedRoles(
+      Array.from(event.target.selectedOptions, (option) => option.value),
+    );
+    setForm((current) => ({
+      ...current,
+      roles: selectedRoles,
+    }));
   };
 
   const handleFileChange = (event) => {
@@ -69,19 +81,25 @@ function AddWaypointModal({
     setFormError("");
     setIsPickingCoordinates(true);
     setIsTemporarilyHidden(true);
-    const picked = await onRequestCoordinatePick?.();
-    setIsTemporarilyHidden(false);
-    setIsPickingCoordinates(false);
-    if (!picked) return;
-    setForm((current) => ({
-      ...current,
-      latitude: picked.latitude,
-      longitude: picked.longitude,
-      coordinates: [
-        ...current.coordinates,
-        [Number(picked.latitude), Number(picked.longitude)],
-      ],
-    }));
+    try {
+      const picked = await onRequestCoordinatePick?.();
+      if (!picked) return;
+      setForm((current) => ({
+        ...current,
+        latitude: picked.latitude,
+        longitude: picked.longitude,
+        coordinates: [
+          ...current.coordinates,
+          [Number(picked.latitude), Number(picked.longitude)],
+        ],
+      }));
+    } catch (error) {
+      console.error("Failed to pick coordinates:", error);
+      setFormError("Could not capture map coordinates. Please try again.");
+    } finally {
+      setIsTemporarilyHidden(false);
+      setIsPickingCoordinates(false);
+    }
   };
 
   const handleAddManualCoordinate = () => {
@@ -121,13 +139,13 @@ function AddWaypointModal({
   const handleSubmit = async (event) => {
     event.preventDefault();
     const name = form.name.trim();
-    const role = form.role.trim();
+    const roles = normalizeAllowedRoles(form.roles ?? []);
     const story = form.story.trim();
     const contactEmail = form.contactEmail.trim();
     const contactPhone = form.contactPhone.trim();
 
-    if (!name || !role || !story) {
-      setFormError("Name, role, and story are required.");
+    if (!name || !roles.length || !story) {
+      setFormError("Name, at least one role, and story are required.");
       return;
     }
     if (!contactEmail) {
@@ -149,7 +167,7 @@ function AddWaypointModal({
     try {
       const submissionReceipt = await onSubmitWaypoint({
         name,
-        role,
+        roles,
         storyType: form.storyType.trim(),
         neighborhood: form.neighborhood.trim(),
         graveLocation: form.graveLocation.trim(),
@@ -209,14 +227,19 @@ function AddWaypointModal({
           </label>
           <label>
             Role
-            <input
-              name="role"
-              type="text"
-              value={form.role}
-              onChange={handleFieldChange}
-              placeholder="Civil rights leader, educator, family role, etc."
-              required
-            />
+            <select
+              value={form.roles}
+              onChange={handleRolesChange}
+              multiple
+              size={Math.min(6, Math.max(roleOptions.length, 4))}
+            >
+              {roleOptions.map((roleOption) => (
+                <option key={roleOption} value={roleOption}>
+                  {roleOption}
+                </option>
+              ))}
+            </select>
+            <span className="form-note">Hold Cmd/Ctrl to select multiple roles.</span>
           </label>
           {/* <label>
             Story type

@@ -15,4 +15,19 @@
 body {
   margin: 0;
   min-width: 320px;
+  font-family: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.leaflet-container,
+.leaflet-control,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  font-family: inherit;
 }

@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed:entities": "node scripts/seed-entities.mjs"
+    "seed:entities": "node scripts/seed-entities.mjs",
+    "cleanup:roles": "node scripts/cleanup-role-fields.mjs"
   },
   "dependencies": {
     "firebase": "^12.9.0",

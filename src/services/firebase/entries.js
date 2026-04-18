@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   deleteDoc,
   doc,
   getDoc,
@@ -31,7 +32,7 @@ export async function updateEntry({
   entryId,
   name,
   summary,
-  role,
+  roles,
   storyType,
   neighborhood,
   graveLocation,
@@ -54,7 +55,7 @@ export async function updateEntry({
   const sanitized = sanitizeEntryPayload({
     name,
     summary,
-    role,
+    roles,
     storyType,
     neighborhood,
     graveLocation,
@@ -67,6 +68,7 @@ export async function updateEntry({
 
   await updateDoc(entryRef, {
     ...sanitized,
+    role: deleteField(),
     coordinates: toFirestoreCoordinates(sanitized.coordinates),
     updatedAt: serverTimestamp(),
   });
@@ -79,7 +81,7 @@ export async function updateEntry({
 export async function createEntry({
   name,
   summary,
-  role,
+  roles,
   storyType,
   neighborhood,
   graveLocation,
@@ -99,7 +101,7 @@ export async function createEntry({
   const sanitized = sanitizeEntryPayload({
     name,
     summary,
-    role,
+    roles,
     storyType,
     neighborhood,
     graveLocation,

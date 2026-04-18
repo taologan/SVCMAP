@@ -1,6 +1,6 @@
 export const EMPTY_FORM = {
   name: "",
-  role: "",
+  roles: [],
   storyType: "",
   neighborhood: "",
   graveLocation: "",
@@ -40,7 +40,7 @@ export const APP_CONFIG = {
   foundationLinks: [
     {
       label: "Support the Foundation",
-      url: "https://givebutter.com/southview-cemetary-qtdsw7",
+      url: "https://givebutter.com/south-view-cemetery-nqvhuj",
     },
     {
       label: "Instagram Storytelling",
@@ -57,3 +57,59 @@ export const STORY_TYPE_OPTIONS = [
   "Family connection",
   "Education resource",
 ];
+
+export const OTHER_ROLE_LABEL = "Other";
+
+export function normalizeAllowedRoles(roles = []) {
+  const seen = new Set();
+  return sortRolesAlphabetically(
+    roles
+      .map((role) => `${role ?? ""}`.trim())
+      .filter((role) => {
+        if (!role) return false;
+        const normalizedRole = role.toLowerCase();
+        if (seen.has(normalizedRole)) return false;
+        seen.add(normalizedRole);
+        return true;
+      }),
+  );
+}
+
+function sortRolesAlphabetically(roles = []) {
+  const normalizedOtherRole = OTHER_ROLE_LABEL.toLowerCase();
+  return [...roles].sort((leftRole, rightRole) => {
+    const isLeftOtherRole = leftRole.toLowerCase() === normalizedOtherRole;
+    const isRightOtherRole = rightRole.toLowerCase() === normalizedOtherRole;
+
+    if (isLeftOtherRole && !isRightOtherRole) return 1;
+    if (!isLeftOtherRole && isRightOtherRole) return -1;
+
+    return leftRole.localeCompare(rightRole, undefined, { sensitivity: "base" });
+  });
+}
+
+export function buildRoleOptions(allowedRoles = []) {
+  const normalizedRoles = normalizeAllowedRoles(allowedRoles);
+  const rolesWithOther = normalizedRoles.some(
+    (role) => role.toLowerCase() === OTHER_ROLE_LABEL.toLowerCase(),
+  )
+    ? normalizedRoles
+    : [...normalizedRoles, OTHER_ROLE_LABEL];
+  return sortRolesAlphabetically(rolesWithOther);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function buildRoleCategoryOptions(allowedRoles = []) {
+  return buildRoleOptions(allowedRoles).map((role) => ({
+    value: role.toLowerCase(),
+    label: role,
+    matcher: new RegExp(`\\b${escapeRegExp(role)}\\b`, "i"),
+  }));
+}
+
+export function rolesToText(roles = []) {
+  return sortRolesAlphabetically(normalizeAllowedRoles(roles)).join(", ");
+}

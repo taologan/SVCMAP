@@ -6,10 +6,16 @@ import {
   denyPending,
   getAllEntriesForAdmin,
   getPending,
+  updateAllowedRolesSetting,
   updateCommunitySubmissionsSetting,
   updateEntry,
   updatePending,
 } from "../firebase";
+import {
+  buildRoleOptions,
+  normalizeAllowedRoles,
+  rolesToText,
+} from "../constants";
 import {
   SUPPORTED_UPLOAD_ACCEPT,
   getUnsupportedUploadMessage,
@@ -87,10 +93,14 @@ function parseExternalLinks(text) {
 }
 
 function makeDraft(record = {}) {
+  const roles = normalizeAllowedRoles(record.roles ?? []);
+  const resolvedRoles = roles.length
+    ? roles
+    : normalizeAllowedRoles(record.role ? [record.role] : []);
   return {
     id: record.id ?? null,
     name: record.name ?? "",
-    role: record.role ?? "",
+    roles: resolvedRoles,
     storyType: record.storyType ?? "",
     neighborhood: record.neighborhood ?? "",
     graveLocation: record.graveLocation ?? "",
@@ -113,12 +123,12 @@ function buildPayloadFromDraft(draft, newFiles = []) {
   if (!draft) return { error: "No record selected.", payload: null };
 
   const name = draft.name.trim();
-  const role = draft.role.trim();
+  const roles = normalizeAllowedRoles(draft.roles ?? []);
   const summary = draft.summary.trim();
 
-  if (!name || !role || !summary) {
+  if (!name || !roles.length || !summary) {
     return {
-      error: "Name, role, and summary are required.",
+      error: "Name, at least one role, and summary are required.",
       payload: null,
     };
   }
@@ -137,7 +147,7 @@ function buildPayloadFromDraft(draft, newFiles = []) {
     error: "",
     payload: {
       name,
-      role,
+      roles,
       storyType: draft.storyType.trim(),
       neighborhood: draft.neighborhood.trim(),
       graveLocation: draft.graveLocation.trim(),
@@ -161,6 +171,7 @@ function AdminPanel({
   onEntriesChanged,
   allowCommunitySubmissions,
   onRequestCoordinatePick,
+  allowedRoles = [],
 }) {
   const [activeTab, setActiveTab] = useState("entries");
   const [pendingItems, setPendingItems] = useState([]);
@@ -182,7 +193,10 @@ function AdminPanel({
   const [isDeletingEntry, setIsDeletingEntry] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isSavingCommunitySetting, setIsSavingCommunitySetting] = useState(false);
+  const [rolesDraftText, setRolesDraftText] = useState("");
+  const [isSavingAllowedRoles, setIsSavingAllowedRoles] = useState(false);
   const [pickingCoordinatesTarget, setPickingCoordinatesTarget] = useState(null);
+  const roleOptions = useMemo(() => buildRoleOptions(allowedRoles), [allowedRoles]);
 
   const selectedPending = useMemo(
     () => pendingItems.find((item) => item.id === selectedPendingId) ?? null,
@@ -196,7 +210,7 @@ function AdminPanel({
     return entries.filter((item) =>
       [
         item.name,
-        item.role,
+        rolesToText(item.roles ?? []),
         item.storyType,
         item.neighborhood,
         item.graveLocation,
@@ -271,6 +285,11 @@ function AdminPanel({
     setEntryDraft(makeDraft(selectedEntry));
     setEntryNewFiles([]);
   }, [entryMode, selectedEntry]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setRolesDraftText(normalizeAllowedRoles(allowedRoles).join("\n"));
+  }, [allowedRoles, isOpen]);
 
   if (!isOpen) return null;
 
@@ -378,6 +397,31 @@ function AdminPanel({
       setError("Could not update the community submissions setting.");
     } finally {
       setIsSavingCommunitySetting(false);
+    }
+  };
+
+  const handleSaveAllowedRoles = async () => {
+    const parsedRoles = normalizeAllowedRoles(rolesDraftText.split("\n"));
+    if (!parsedRoles.length) {
+      setError("At least one role is required.");
+      setSuccessMessage("");
+      return;
+    }
+
+    setIsSavingAllowedRoles(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      await updateAllowedRolesSetting({
+        allowedRoles: parsedRoles,
+        updatedBy: userEmail ?? null,
+      });
+      setSuccessMessage("Allowed roles updated.");
+    } catch (saveError) {
+      console.error("Failed to update allowed roles:", saveError);
+      setError("Could not update allowed roles.");
+    } finally {
+      setIsSavingAllowedRoles(false);
     }
   };
 
@@ -555,11 +599,34 @@ function AdminPanel({
       </label>
       <label>
         Role
-        <input
-          value={draft?.role ?? ""}
-          onChange={(event) => setField("role", event.target.value)}
-          placeholder="Educator, organizer, family figure, landmark..."
-        />
+        <select
+          value={draft?.roles ?? []}
+          onChange={(event) => {
+            const selectedRoles = normalizeAllowedRoles(
+              Array.from(event.target.selectedOptions, (option) => option.value),
+            );
+            setField("roles", selectedRoles);
+          }}
+          multiple
+          size={Math.min(6, Math.max(roleOptions.length, 4))}
+        >
+          {(() => {
+            const currentRoles = normalizeAllowedRoles(draft?.roles ?? []);
+            const dropdownRoles =
+              currentRoles.length
+                ? normalizeAllowedRoles([
+                    ...roleOptions,
+                    ...currentRoles.filter((role) => !roleOptions.includes(role)),
+                  ])
+                : roleOptions;
+            return dropdownRoles.map((roleOption) => (
+              <option key={roleOption} value={roleOption}>
+                {roleOption}
+              </option>
+            ));
+          })()}
+        </select>
+        <span className="form-note">Hold Cmd/Ctrl to select multiple roles.</span>
       </label>
       {/* <label>
         Story type
@@ -699,6 +766,30 @@ function AdminPanel({
                   : "Enable submissions"}
             </button>
           </div>
+          <div className="admin-settings-card">
+            <div>
+              <p className="admin-settings-title">Allowed roles</p>
+              <p className="admin-settings-copy">
+                One role per line. This list powers submission, admin editing, and the role
+                category filter.
+              </p>
+              <textarea
+                className="admin-search-input"
+                rows={5}
+                value={rolesDraftText}
+                onChange={(event) => setRolesDraftText(event.target.value)}
+                placeholder="Actor&#10;Artist&#10;Civil Rights Leader"
+              />
+            </div>
+            <button
+              type="button"
+              className="admin-setting-toggle"
+              onClick={handleSaveAllowedRoles}
+              disabled={isSavingAllowedRoles}
+            >
+              {isSavingAllowedRoles ? "Saving..." : "Save roles"}
+            </button>
+          </div>
           <div className="admin-tab-row">
             <button
               type="button"
@@ -741,7 +832,7 @@ function AdminPanel({
                   >
                     <strong>{item.name}</strong>
                     <span>
-                      {[item.role, item.storyType, item.neighborhood]
+                      {[rolesToText(item.roles ?? []), item.storyType, item.neighborhood]
                         .filter(Boolean)
                         .join(" • ")}
                     </span>
@@ -817,7 +908,7 @@ function AdminPanel({
                   >
                     <strong>{item.name}</strong>
                     <span>
-                      {[item.role, item.storyType, item.neighborhood]
+                      {[rolesToText(item.roles ?? []), item.storyType, item.neighborhood]
                         .filter(Boolean)
                         .join(" • ")}
                     </span>
