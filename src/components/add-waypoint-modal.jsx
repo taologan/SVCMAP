@@ -202,7 +202,7 @@ function AddWaypointModal({
   return (
     <div className="entity-modal-backdrop" role="presentation" onClick={onClose}>
       <section
-        className="entity-modal form-modal"
+        className="entity-modal admin-panel community-submission-panel"
         role="dialog"
         aria-modal="true"
         aria-label="Add waypoint"
@@ -213,230 +213,232 @@ function AddWaypointModal({
         </button>
         <p className="eyebrow">New waypoint request</p>
         <h2>Add a Waypoint</h2>
-        <form className="add-waypoint-form" onSubmit={handleSubmit}>
-          <label>
-            Name
-            <input
-              name="name"
-              type="text"
-              value={form.name}
-              onChange={handleFieldChange}
-              placeholder="Person or place name"
-              required
-            />
-          </label>
-          <label>
-            Role
-            <select
-              value={form.roles}
-              onChange={handleRolesChange}
-              multiple
-              size={Math.min(6, Math.max(roleOptions.length, 4))}
-            >
-              {roleOptions.map((roleOption) => (
-                <option key={roleOption} value={roleOption}>
-                  {roleOption}
-                </option>
-              ))}
-            </select>
-            <span className="form-note">Hold Cmd/Ctrl to select multiple roles.</span>
-          </label>
-          {/* <label>
-            Story type
-            <input
-              name="storyType"
-              type="text"
-              value={form.storyType}
-              onChange={handleFieldChange}
-              placeholder="Community memory, burial record, Atlanta landmark..."
-            />
-          </label>
-          <label>
-            Atlanta connection
-            <input
-              name="neighborhood"
-              type="text"
-              value={form.neighborhood}
-              onChange={handleFieldChange}
-              placeholder="Neighborhood, institution, or place tied to the story"
-            />
-          </label> */}
-          <label>
-            Burial location or grave note
-            <input
-              name="graveLocation"
-              type="text"
-              value={form.graveLocation}
-              onChange={handleFieldChange}
-              placeholder="Section, lot, grave number, or navigation clue"
-            />
-          </label>
-          <label>
-            Story
-            <textarea
-              name="story"
-              value={form.story}
-              onChange={handleFieldChange}
-              placeholder="Short story or description"
-              rows={4}
-              required
-            />
-          </label>
-          {/* <label>
-            SVC resource label
-            <input
-              name="sourceLabel"
-              type="text"
-              value={form.sourceLabel}
-              onChange={handleFieldChange}
-              placeholder="Biography page, foundation resource, archive..."
-            />
-          </label>
-          <label>
-            SVC resource link
-            <input
-              name="sourceUrl"
-              type="url"
-              value={form.sourceUrl}
-              onChange={handleFieldChange}
-              placeholder="https://"
-            />
-          </label> */}
-          <label>
-            Additional links
-            <textarea
-              name="externalLinks"
-              value={form.externalLinks}
-              onChange={handleFieldChange}
-              placeholder="One per line: Label | https://example.com"
-              rows={3}
-            />
-          </label>
-          <div className="coord-grid">
+        <div className="admin-panel-body community-submission-body">
+          <form className="add-waypoint-form" onSubmit={handleSubmit}>
             <label>
-              Latitude
+              Name
               <input
-                name="latitude"
-                type="number"
-                step="any"
-                value={form.latitude}
+                name="name"
+                type="text"
+                value={form.name}
                 onChange={handleFieldChange}
-                placeholder="33.7490"
+                placeholder="Person or place name"
+                required
               />
             </label>
             <label>
-              Longitude
+              Role
+              <select
+                value={form.roles}
+                onChange={handleRolesChange}
+                multiple
+                size={Math.min(6, Math.max(roleOptions.length, 4))}
+              >
+                {roleOptions.map((roleOption) => (
+                  <option key={roleOption} value={roleOption}>
+                    {roleOption}
+                  </option>
+                ))}
+              </select>
+              <span className="form-note">Hold Cmd/Ctrl to select multiple roles.</span>
+            </label>
+            {/* <label>
+              Story type
               <input
-                name="longitude"
-                type="number"
-                step="any"
-                value={form.longitude}
+                name="storyType"
+                type="text"
+                value={form.storyType}
                 onChange={handleFieldChange}
-                placeholder="-84.3880"
+                placeholder="Community memory, burial record, Atlanta landmark..."
               />
             </label>
-          </div>
-          <div className="coord-actions">
-            <button
-              type="button"
-              className="pick-coord-btn manual"
-              onClick={handleAddManualCoordinate}
-            >
-              Add manual coordinate
-            </button>
-            <button
-              type="button"
-              className="pick-coord-btn"
-              onClick={handlePickCoordinates}
-              disabled={isPickingCoordinates}
-            >
-              {isPickingCoordinates
-                ? "Click on the map to add a coordinate..."
-                : "Select coordinates on map"}
-            </button>
-          </div>
-          {form.coordinates.length ? (
-            <ul className="selected-coordinates">
-              {form.coordinates.map(([lat, lng], index) => (
-                <li key={`${lat}-${lng}-${index}`}>
-                  <span>
-                    {lat.toFixed(6)}, {lng.toFixed(6)}
-                  </span>
-                  <button
-                    type="button"
-                    className="remove-coordinate-btn"
-                    onClick={() => handleRemoveCoordinate(index)}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
+            <label>
+              Atlanta connection
+              <input
+                name="neighborhood"
+                type="text"
+                value={form.neighborhood}
+                onChange={handleFieldChange}
+                placeholder="Neighborhood, institution, or place tied to the story"
+              />
+            </label> */}
+            <label>
+              Burial location or grave note
+              <input
+                name="graveLocation"
+                type="text"
+                value={form.graveLocation}
+                onChange={handleFieldChange}
+                placeholder="Section, lot, grave number, or navigation clue"
+              />
+            </label>
+            <label>
+              Story
+              <textarea
+                name="story"
+                value={form.story}
+                onChange={handleFieldChange}
+                placeholder="Short story or description"
+                rows={4}
+                required
+              />
+            </label>
+            {/* <label>
+              SVC resource label
+              <input
+                name="sourceLabel"
+                type="text"
+                value={form.sourceLabel}
+                onChange={handleFieldChange}
+                placeholder="Biography page, foundation resource, archive..."
+              />
+            </label>
+            <label>
+              SVC resource link
+              <input
+                name="sourceUrl"
+                type="url"
+                value={form.sourceUrl}
+                onChange={handleFieldChange}
+                placeholder="https://"
+              />
+            </label> */}
+            <label>
+              Additional links
+              <textarea
+                name="externalLinks"
+                value={form.externalLinks}
+                onChange={handleFieldChange}
+                placeholder="One per line: Label | https://example.com"
+                rows={3}
+              />
+            </label>
+            <div className="coord-grid">
+              <label>
+                Latitude
+                <input
+                  name="latitude"
+                  type="number"
+                  step="any"
+                  value={form.latitude}
+                  onChange={handleFieldChange}
+                  placeholder="33.7490"
+                />
+              </label>
+              <label>
+                Longitude
+                <input
+                  name="longitude"
+                  type="number"
+                  step="any"
+                  value={form.longitude}
+                  onChange={handleFieldChange}
+                  placeholder="-84.3880"
+                />
+              </label>
+            </div>
+            <div className="coord-actions">
+              <button
+                type="button"
+                className="pick-coord-btn manual"
+                onClick={handleAddManualCoordinate}
+              >
+                Add manual coordinate
+              </button>
+              <button
+                type="button"
+                className="pick-coord-btn"
+                onClick={handlePickCoordinates}
+                disabled={isPickingCoordinates}
+              >
+                {isPickingCoordinates
+                  ? "Click on the map to add a coordinate..."
+                  : "Select coordinates on map"}
+              </button>
+            </div>
+            {form.coordinates.length ? (
+              <ul className="selected-coordinates">
+                {form.coordinates.map(([lat, lng], index) => (
+                  <li key={`${lat}-${lng}-${index}`}>
+                    <span>
+                      {lat.toFixed(6)}, {lng.toFixed(6)}
+                    </span>
+                    <button
+                      type="button"
+                      className="remove-coordinate-btn"
+                      onClick={() => handleRemoveCoordinate(index)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="form-note">
+                Add one or more coordinates. You can mix manual input and map picks.
+              </p>
+            )}
+            <label>
+              Contact email
+              <input
+                name="contactEmail"
+                type="email"
+                value={form.contactEmail}
+                onChange={handleFieldChange}
+                placeholder="you@example.org"
+                required
+              />
+            </label>
+            <label>
+              Contact phone (optional)
+              <input
+                name="contactPhone"
+                type="tel"
+                value={form.contactPhone}
+                onChange={handleFieldChange}
+                placeholder="404-555-1234"
+              />
+            </label>
             <p className="form-note">
-              Add one or more coordinates. You can mix manual input and map picks.
+              Email is required for status lookup. Phone number is optional.
             </p>
-          )}
-          <label>
-            Contact email
-            <input
-              name="contactEmail"
-              type="email"
-              value={form.contactEmail}
-              onChange={handleFieldChange}
-              placeholder="you@example.org"
-              required
-            />
-          </label>
-          <label>
-            Contact phone (optional)
-            <input
-              name="contactPhone"
-              type="tel"
-              value={form.contactPhone}
-              onChange={handleFieldChange}
-              placeholder="404-555-1234"
-            />
-          </label>
-          <p className="form-note">
-            Email is required for status lookup. Phone number is optional.
-          </p>
-          <label>
-            Upload files
-            <input
-              type="file"
-              accept={SUPPORTED_UPLOAD_ACCEPT}
-              multiple
-              onChange={handleFileChange}
-            />
-          </label>
-          <p className="form-note">
-            You can add multiple images or MP3 files to a single request.
-          </p>
-          {form.files.length ? (
-            <ul className="selected-upload-list">
-              {form.files.map((file, index) => (
-                <li
-                  key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
-                  className="selected-upload-item"
-                >
-                  <span>{file.name}</span>
-                  <button
-                    type="button"
-                    className="remove-upload-btn"
-                    onClick={() => handleRemoveFile(index)}
+            <label>
+              Upload files
+              <input
+                type="file"
+                accept={SUPPORTED_UPLOAD_ACCEPT}
+                multiple
+                onChange={handleFileChange}
+              />
+            </label>
+            <p className="form-note">
+              You can add multiple images or MP3 files to a single request.
+            </p>
+            {form.files.length ? (
+              <ul className="selected-upload-list">
+                {form.files.map((file, index) => (
+                  <li
+                    key={`${file.name}-${file.size}-${file.lastModified}-${index}`}
+                    className="selected-upload-item"
                   >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {formError ? <p className="form-error">{formError}</p> : null}
-          <button type="submit" className="submit-btn" disabled={isSavingWaypoint}>
-            {isSavingWaypoint ? "Saving..." : "Save waypoint"}
-          </button>
-        </form>
+                    <span>{file.name}</span>
+                    <button
+                      type="button"
+                      className="remove-upload-btn"
+                      onClick={() => handleRemoveFile(index)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {formError ? <p className="form-error">{formError}</p> : null}
+            <button type="submit" className="submit-btn" disabled={isSavingWaypoint}>
+              {isSavingWaypoint ? "Saving..." : "Save waypoint"}
+            </button>
+          </form>
+        </div>
       </section>
     </div>
   );
