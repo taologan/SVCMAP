@@ -147,10 +147,10 @@ function Sidebar({
           <input
             id="sidebar-global-search"
             type="checkbox"
-            checked={isGlobalSearch}
-            onChange={(event) => setIsGlobalSearch(event.target.checked)}
+            checked={!isGlobalSearch}
+            onChange={(event) => setIsGlobalSearch(!event.target.checked)}
           />
-          <span>Global search</span>
+          <span>Limit search to entries in view</span>
         </label>
         <div className="sidebar-filter-grid">
           {/* <label className="sidebar-filter-field" htmlFor="sidebar-story-type">
